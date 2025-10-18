@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 只需要保留 RadiusOutlierFilter 参数 -->
+  <arg name="RadiusOutlierFilter" default="1.5"/>
+
+  <!-- 启动点云处理节点 -->
+  <node pkg="lidar_transform" exec="lidar_transform_node" name="lidar_transform" output="screen">
+    <!-- 只保留 radius_outlier_filter 参数 -->
+    <param name="RadiusOutlierFilter" value="$(var RadiusOutlierFilter)"/>
+  </node>
+</launch>
