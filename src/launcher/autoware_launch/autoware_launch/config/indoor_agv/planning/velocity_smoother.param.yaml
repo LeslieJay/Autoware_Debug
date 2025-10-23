@@ -1,0 +1,273 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV速度平滑器参数配置
+    # ============================================
+    # 功能：平滑速度曲线，确保舒适性和动力学可行性
+    # 适用场景：室内环境平稳运动
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 平滑器类型
+    # - "JerkFiltered": 急动度滤波平滑器（推荐）
+    # - "L2": L2范数优化平滑器
+    # - "Linf": L无穷范数优化平滑器
+    # - "Analytical": 解析平滑器
+    # 室内环境推荐使用JerkFiltered，平衡计算效率和平滑效果
+    smoother_type: "JerkFiltered"
+    
+    # 通用参数
+    common:
+      # 规划频率 [Hz]
+      planning_hz: 20.0
+      
+      # 路径重采样间隔 [m]
+      # 较小的间隔提供更精细的速度控制
+      resample_interval: 0.5
+      
+      # 最小路径长度 [m]
+      # 短于此长度的路径不进行平滑
+      min_path_length: 1.0
+    
+    # 动力学约束
+    dynamics:
+      # 最大速度 [m/s]
+      max_velocity: 1.5
+      
+      # 最小速度 [m/s]
+      min_velocity: 0.0
+      
+      # 最大加速度 [m/s²]
+      max_acceleration: 0.5
+      
+      # 最大减速度 [m/s²]
+      # 减速度通常可以大于加速度
+      max_deceleration: 0.8
+      
+      # 最大急动度 [m/s³]
+      # 室内环境需要舒适的加速度变化
+      max_jerk: 0.5
+      
+      # 最小急动度 [m/s³]
+      min_jerk: -0.5
+      
+      # 最大横向加速度 [m/s²]
+      # 用于曲线速度限制
+      max_lateral_acceleration: 0.5
+      
+      # 最大横向急动度 [m/s³]
+      max_lateral_jerk: 0.3
+    
+    # 急动度滤波平滑器参数（JerkFiltered）
+    JerkFiltered:
+      # 急动度滤波器带宽 [Hz]
+      # 较低的带宽产生更平滑的速度曲线
+      jerk_filter_bandwidth: 1.0
+      
+      # 急动度限制缩放因子
+      # 实际急动度限制 = max_jerk × 缩放因子
+      jerk_limit_scaling: 0.9
+      
+      # 加速度限制缩放因子
+      acceleration_limit_scaling: 0.95
+      
+      # 速度限制缩放因子
+      velocity_limit_scaling: 0.98
+      
+      # 前向滤波窗口大小
+      forward_filter_window: 5
+      
+      # 后向滤波窗口大小
+      backward_filter_window: 5
+      
+      # 最大迭代次数
+      max_iterations: 10
+      
+      # 收敛阈值
+      convergence_threshold: 0.001
+    
+    # L2优化平滑器参数（L2）
+    L2:
+      # 优化权重
+      weights:
+        # 急动度权重
+        # 权重越大，急动度越小，曲线越平滑
+        jerk: 1.0
+        
+        # 速度超限权重
+        # 防止速度超过限制
+        over_velocity: 100.0
+        
+        # 加速度超限权重
+        # 防止加速度超过限制
+        over_acceleration: 1000.0
+        
+        # 急动度超限权重
+        over_jerk: 10000.0
+      
+      # 优化参数
+      optimization:
+        # 最大迭代次数
+        max_iterations: 100
+        
+        # 收敛阈值
+        convergence_threshold: 0.01
+        
+        # 线搜索步长
+        line_search_step_size: 0.1
+        
+        # 线搜索最大迭代次数
+        line_search_max_iterations: 10
+    
+    # L无穷范数优化平滑器参数（Linf）
+    Linf:
+      # 时间裕度 [s]
+      # 相对于动力学极限的时间缓冲
+      time_margin: 0.1
+      
+      # 速度裕度 [m/s]
+      velocity_margin: 0.05
+      
+      # 加速度裕度 [m/s²]
+      acceleration_margin: 0.05
+      
+      # 最大迭代次数
+      max_iterations: 50
+      
+      # 收敛阈值
+      convergence_threshold: 0.01
+    
+    # 解析平滑器参数（Analytical）
+    Analytical:
+      # 加速度约束缩放因子
+      # 实际约束 = 限制 × 缩放因子
+      acceleration_constraint_scaling: 0.95
+      
+      # 急动度约束缩放因子
+      jerk_constraint_scaling: 0.95
+      
+      # 分段时间最小值 [s]
+      min_segment_time: 0.1
+      
+      # 分段时间最大值 [s]
+      max_segment_time: 10.0
+    
+    # 初始速度处理
+    initial_velocity:
+      # 初始速度源
+      # - "current": 使用当前车辆速度
+      # - "path": 使用路径第一个点的速度
+      # - "zero": 从零开始
+      source: "current"
+      
+      # 初始速度平滑窗口
+      smoothing_window: 3
+      
+      # 最大初始速度跳变 [m/s]
+      # 防止速度突变
+      max_initial_velocity_jump: 0.3
+    
+    # 终点速度处理
+    terminal_velocity:
+      # 终点速度
+      # - "zero": 停止
+      # - "path": 使用路径最后一个点的速度
+      # - "maintain": 保持当前速度
+      target: "zero"
+      
+      # 停止点减速距离 [m]
+      decel_distance_to_stop: 3.0
+      
+      # 停止速度阈值 [m/s]
+      stop_velocity_threshold: 0.01
+    
+    # 曲率速度限制
+    curvature_velocity_limit:
+      # 是否启用
+      enable: true
+      
+      # 最大横向加速度 [m/s²]
+      max_lateral_acceleration: 0.5
+      
+      # 曲率计算方法
+      # - "three_point": 三点法
+      # - "fitting": 曲线拟合法
+      calculation_method: "three_point"
+      
+      # 曲率计算窗口大小
+      calculation_window: 5
+      
+      # 曲率平滑窗口大小
+      smoothing_window: 3
+      
+      # 最小转弯半径 [m]
+      min_turn_radius: 0.5
+    
+    # 速度连续性保证
+    velocity_continuity:
+      # 是否强制速度连续
+      enforce_continuity: true
+      
+      # 最大速度跳变 [m/s]
+      max_velocity_jump: 0.2
+      
+      # 最大加速度跳变 [m/s²]
+      max_acceleration_jump: 0.3
+    
+    # 后处理
+    post_processing:
+      # 速度平滑后处理
+      velocity_smoothing:
+        # 是否启用
+        enable: true
+        
+        # 滤波器类型
+        # - "moving_average": 移动平均
+        # - "gaussian": 高斯滤波
+        filter_type: "moving_average"
+        
+        # 窗口大小
+        window_size: 5
+      
+      # 去除微小振荡
+      remove_oscillations:
+        # 是否启用
+        enable: true
+        
+        # 振荡阈值 [m/s²]
+        oscillation_threshold: 0.05
+    
+    # 性能监控
+    performance:
+      # 是否启用性能监控
+      enable_monitoring: true
+      
+      # 最大处理时间 [ms]
+      max_processing_time: 20.0
+      
+      # 处理时间超限警告阈值 [ms]
+      processing_time_warning_threshold: 15.0
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布原始速度剖面
+      publish_raw_velocity: false
+      
+      # 发布平滑后速度剖面
+      publish_smoothed_velocity: true
+      
+      # 发布加速度剖面
+      publish_acceleration: false
+      
+      # 发布急动度剖面
+      publish_jerk: false
+      
+      # 打印统计信息
+      print_statistics: false
+      
+      # 打印处理时间
+      print_processing_time: false
+

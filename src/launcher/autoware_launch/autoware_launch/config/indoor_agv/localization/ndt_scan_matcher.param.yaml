@@ -1,0 +1,191 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV NDT扫描匹配器参数配置
+    # ============================================
+    # 功能：基于2D激光雷达的NDT定位
+    # 适用场景：室内结构化环境
+    # 特点：高精度、低延迟、适合低速场景
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    frame:
+      # 坐标系配置
+      
+      # 车辆参考坐标系
+      base_frame: "base_link"
+      
+      # NDT基准坐标系
+      # 通常与激光雷达坐标系对齐
+      ndt_base_frame: "ndt_base_link"
+      
+      # 地图坐标系
+      map_frame: "map"
+
+    sensor_points:
+      # 传感器点云参数
+      
+      # 时间戳差异容限 [s]
+      # 室内环境传感器同步较好
+      timeout_sec: 1.0
+      
+      # 所需点云距离 [m]
+      # 室内环境扫描范围较小，设置较小值
+      # 如果输入点云的最大距离低于此值，将不执行扫描匹配
+      required_distance: 5.0
+
+    ndt:
+      # NDT算法核心参数
+      
+      # 收敛判断阈值
+      # 连续两次变换的最大差异
+      # 室内环境可以使用较小值提高精度
+      trans_epsilon: 0.005
+      
+      # 牛顿线搜索最大步长
+      # 室内环境运动较小，使用较小步长
+      step_size: 0.05
+      
+      # ND体素网格分辨率 [m]
+      # 室内环境建议0.3-0.5米
+      # 值越小精度越高但计算量越大
+      resolution: 0.5
+      
+      # 最大迭代次数
+      # 室内环境特征明显，可适当减少迭代次数
+      max_iterations: 30
+      
+      # 并行计算线程数
+      # 根据CPU核心数调整，建议4-8
+      num_threads: 4
+      
+      regularization:
+        # 正则化配置
+        # 用于提高数值稳定性
+        enable: false
+        
+        # 正则化缩放因子
+        scale_factor: 0.01
+
+    initial_pose_estimation:
+      # 初始位姿估计参数
+      
+      # 粒子数量
+      # 用于初始位姿搜索的粒子数
+      # 室内环境可以适当减少
+      particles_num: 150
+      
+      # TPE初始随机试验数
+      # 树结构Parzen估计器的初始随机试验数
+      # 应小于等于particles_num
+      n_startup_trials: 75
+
+    validation:
+      # 验证参数
+      # 用于判断NDT匹配结果是否可信
+      
+      # 初始位姿时间戳容限 [s]
+      initial_pose_timeout_sec: 1.0
+      
+      # 线性插值使用的初始位姿距离容限 [m]
+      # 室内环境运动范围小，使用较小值
+      initial_pose_distance_tolerance_m: 5.0
+      
+      # 初始位姿到结果位姿的距离容限 [m]
+      # 室内环境匹配精度高，使用较小值
+      initial_to_result_distance_tolerance_m: 1.5
+      
+      # 临界执行时间上限 [ms]
+      # 超过此时间可能表示NDT无法正确匹配
+      # 室内环境计算量小，设置较小值
+      critical_upper_bound_exe_time_ms: 80.0
+      
+      # 连续拒绝估计结果的容限次数
+      # 超过此次数后会输出警告
+      skipping_publish_num: 5
+
+    score_estimation:
+      # 得分估计参数
+      # 用于判断匹配质量
+      
+      # 收敛参数类型
+      # 0=TRANSFORM_PROBABILITY（变换概率）
+      # 1=NEAREST_VOXEL_TRANSFORMATION_LIKELIHOOD（最近体素变换似然）
+      # 室内环境建议使用类型1
+      converged_param_type: 1
+      
+      # 类型0的阈值
+      # 用于判断是否信任估计结果
+      converged_param_transform_probability: 3.0
+      
+      # 类型1的阈值
+      # 室内环境特征明显，可以使用较高阈值
+      converged_param_nearest_voxel_transformation_likelihood: 2.5
+      
+      # 基于非地面点的扫描匹配得分
+      no_ground_points:
+        # 是否启用
+        # 室内环境建议启用，排除地面干扰
+        enable: true
+        
+        # Z轴地面移除阈值 [m]
+        # 点云Z坐标 - base_link Z坐标 <= 此阈值时，点将被移除
+        # 室内AGV高度较低，使用较小值
+        z_margin_for_ground_removal: 0.3
+
+    covariance:
+      # 协方差参数
+      # 用于表示定位不确定性
+      
+      # 输出位姿协方差矩阵
+      # 6x6矩阵: [x, y, z, roll, pitch, yaw]
+      # 室内环境定位精度高，使用较小协方差值
+      output_pose_covariance:
+        [
+          0.01,   0.0,    0.0,    0.0,       0.0,       0.0,
+          0.0,    0.01,   0.0,    0.0,       0.0,       0.0,
+          0.0,    0.0,    0.01,   0.0,       0.0,       0.0,
+          0.0,    0.0,    0.0,    0.0001,    0.0,       0.0,
+          0.0,    0.0,    0.0,    0.0,       0.0001,    0.0,
+          0.0,    0.0,    0.0,    0.0,       0.0,       0.0001,
+        ]
+      
+      # 2D实时协方差估计
+      covariance_estimation:
+        # 协方差估计类型
+        # 0=FIXED_VALUE（固定值，使用上面的output_pose_covariance）
+        # 1=LAPLACE_APPROXIMATION（拉普拉斯近似）
+        # 2=MULTI_NDT（多重NDT）
+        # 3=MULTI_NDT_SCORE（基于得分的多重NDT）
+        # 室内环境建议使用固定值或类型3
+        covariance_estimation_type: 0
+        
+        # 协方差估计中的偏移量排列 [m]
+        # x和y偏移量数组必须具有相同数量的元素
+        initial_pose_offset_model_x: [0.0, 0.0, 0.3, -0.3, 0.5, -0.5]
+        initial_pose_offset_model_y: [0.3, -0.3, 0.0, 0.0, 0.0, 0.0]
+        
+        # 温度参数
+        # 在MULTI_NDT_SCORE中用于调整估计的2D协方差
+        temperature: 0.05
+        
+        # 缩放因子
+        # 通过常数乘法调整估计协方差的缩放值
+        scale_factor: 1.0
+
+    dynamic_map_loading:
+      # 动态地图加载参数
+      # 室内环境地图通常不大，可以全部加载
+      
+      # 动态地图加载距离 [m]
+      # 当车辆移动超过此距离时触发地图更新
+      update_distance: 10.0
+      
+      # 动态地图加载半径 [m]
+      # 室内环境范围较小，使用较小半径
+      map_radius: 50.0
+      
+      # 输入激光雷达范围半径 [m]
+      # 用于动态地图加载的诊断
+      lidar_radius: 30.0
+

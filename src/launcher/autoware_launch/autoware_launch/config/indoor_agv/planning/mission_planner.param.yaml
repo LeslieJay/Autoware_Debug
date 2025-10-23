@@ -1,0 +1,128 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV任务规划器参数配置
+    # ============================================
+    # 功能：全局路径规划和任务管理
+    # 适用场景：室内环境导航
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 规划器类型
+    # - "lanelet2": 基于Lanelet2地图的路径规划
+    # - "grid": 基于栅格地图的路径规划
+    planner_type: "lanelet2"
+    
+    # 规划频率 [Hz]
+    # 全局路径规划频率较低
+    planning_frequency: 1.0
+    
+    # 路径搜索参数
+    path_search:
+      # 搜索算法
+      # - "dijkstra": Dijkstra最短路径
+      # - "a_star": A*启发式搜索
+      # 室内环境建议使用A*
+      algorithm: "a_star"
+      
+      # A*启发式权重
+      # 权重越大，搜索越快但路径可能不是最优
+      heuristic_weight: 1.0
+      
+      # 最大搜索时间 [s]
+      max_search_time: 5.0
+      
+      # 最大搜索迭代次数
+      max_iterations: 100000
+    
+    # 路径平滑参数
+    path_smoothing:
+      # 是否启用路径平滑
+      enable: true
+      
+      # 平滑算法
+      # - "bezier": 贝塞尔曲线
+      # - "spline": 样条曲线
+      algorithm: "spline"
+      
+      # 平滑步长 [m]
+      smoothing_step: 0.5
+    
+    # 目标点参数
+    goal:
+      # 目标点容差 [m]
+      # 到达目标点的距离阈值
+      # 室内环境精度要求高，使用较小值
+      goal_tolerance: 0.3
+      
+      # 目标点方向容差 [rad]
+      # 到达目标点的方向偏差阈值
+      goal_orientation_tolerance: 0.1
+      
+      # 目标点搜索半径 [m]
+      # 在地图中搜索可达目标点的范围
+      goal_search_radius: 5.0
+    
+    # 起点参数
+    start:
+      # 起点搜索半径 [m]
+      # 在地图中搜索最近路网点的范围
+      start_search_radius: 5.0
+    
+    # 路径验证
+    validation:
+      # 是否验证路径可行性
+      enable: true
+      
+      # 最小路径长度 [m]
+      min_path_length: 0.5
+      
+      # 最大路径长度 [m]
+      # 室内环境路径通常不会太长
+      max_path_length: 500.0
+    
+    # 重规划参数
+    replanning:
+      # 是否启用自动重规划
+      enable: true
+      
+      # 重规划触发条件
+      triggers:
+        # 路径偏差阈值 [m]
+        # 当车辆偏离路径超过此距离时触发重规划
+        path_deviation_threshold: 2.0
+        
+        # 路径阻塞检测
+        # 当前方路径被障碍物阻塞时触发重规划
+        path_blocked: true
+        
+        # 新目标点
+        # 收到新的导航目标时触发重规划
+        new_goal: true
+      
+      # 重规划最小间隔 [s]
+      # 避免频繁重规划
+      min_replanning_interval: 3.0
+    
+    # 安全参数
+    safety:
+      # 安全边界 [m]
+      # 路径与障碍物保持的最小距离
+      # 室内环境通道较窄，使用适中值
+      safety_margin: 0.3
+      
+      # 车辆半径 [m]
+      # 用于碰撞检查的车辆外接圆半径
+      vehicle_radius: 0.5
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_path: true
+      
+      # 发布搜索树可视化
+      publish_search_tree: false
+      
+      # 打印规划时间
+      print_planning_time: true
+

@@ -1,0 +1,111 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV轨迹跟踪器参数配置
+    # ============================================
+    # 功能：轨迹跟踪控制器主节点
+    # 适用场景：室内低速精确控制
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 控制周期 [s]
+    # 室内AGV建议30-50Hz控制频率
+    # 0.03s = 33.3Hz
+    ctrl_period: 0.03
+    
+    # 超时阈值 [s]
+    # 轨迹数据超过此时间未更新视为超时
+    # 室内环境网络延迟小，使用较小值
+    timeout_thr_sec: 0.5
+    
+    # 控制器状态
+    controller_state:
+      # 初始状态
+      # - "idle": 空闲
+      # - "running": 运行
+      initial_state: "idle"
+      
+      # 自动启动
+      # 收到轨迹后自动开始控制
+      auto_start: true
+    
+    # 轨迹处理
+    trajectory_processing:
+      # 轨迹重采样
+      enable_resampling: true
+      
+      # 重采样间隔 [m]
+      # 室内环境使用较小间隔提高精度
+      resampling_interval: 0.5
+      
+      # 最小轨迹长度 [m]
+      min_trajectory_length: 1.0
+      
+      # 最大轨迹年龄 [s]
+      # 超过此时间的轨迹将被丢弃
+      max_trajectory_age: 2.0
+    
+    # 停止条件
+    stop_conditions:
+      # 目标点到达判断阈值 [m]
+      goal_position_tolerance: 0.2
+      
+      # 目标点方向到达判断阈值 [rad]
+      goal_orientation_tolerance: 0.1
+      
+      # 停止速度阈值 [m/s]
+      # 低于此速度视为停止
+      stop_speed_threshold: 0.01
+      
+      # 轨迹结束行为
+      # - "stop": 停止
+      # - "maintain": 保持最后状态
+      end_of_trajectory_behavior: "stop"
+    
+    # 紧急停止
+    emergency_stop:
+      # 紧急停止触发条件
+      triggers:
+        # 轨迹超时
+        trajectory_timeout: true
+        
+        # 控制器错误
+        controller_error: true
+        
+        # 外部紧急信号
+        external_emergency: true
+      
+      # 紧急停止减速度 [m/s²]
+      emergency_decel: 1.5
+    
+    # 性能监控
+    performance_monitoring:
+      # 是否启用
+      enable: true
+      
+      # 控制频率监控
+      monitor_control_frequency: true
+      
+      # 目标控制频率 [Hz]
+      target_control_frequency: 33.3
+      
+      # 频率容差 [Hz]
+      frequency_tolerance: 5.0
+      
+      # 计算时间监控
+      monitor_computation_time: true
+      
+      # 最大允许计算时间 [ms]
+      max_computation_time: 25.0
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布控制命令可视化
+      publish_control_cmd_viz: true
+      
+      # 打印控制状态
+      print_control_status: false
+

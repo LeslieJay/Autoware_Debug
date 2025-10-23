@@ -1,0 +1,233 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV障碍物巡航规划器参数配置
+    # ============================================
+    # 功能：跟随和避让障碍物的速度规划
+    # 适用场景：室内环境动态障碍物处理
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 规划频率 [Hz]
+    planning_hz: 20.0
+    
+    # 巡航模式
+    cruise_mode:
+      # 巡航策略
+      # - "stop": 遇到障碍物停止
+      # - "follow": 跟随障碍物
+      # - "adaptive": 自适应（根据障碍物速度决定）
+      # 室内环境建议使用自适应模式
+      strategy: "adaptive"
+      
+      # 切换到跟随模式的障碍物速度阈值 [m/s]
+      # 障碍物速度大于此值时跟随，否则停止
+      follow_speed_threshold: 0.2
+      
+      # 跟随时的目标速度 [m/s]
+      target_following_velocity: 0.8
+      
+      # 停止时的目标距离 [m]
+      target_stop_distance: 1.0
+      
+      # 跟随时的目标距离 [m]
+      target_following_distance: 2.0
+    
+    # 障碍物检测参数
+    obstacle_detection:
+      # 检测范围 [m]
+      # 室内环境范围较小
+      detection_range: 15.0
+      
+      # 横向检测宽度 [m]
+      # 相对于车辆中心线的横向检测范围
+      lateral_detection_width: 1.5
+      
+      # 障碍物过滤
+      filter:
+        # 最小障碍物尺寸 [m]
+        min_obstacle_size: [0.1, 0.1, 0.1]
+        
+        # 最小障碍物高度 [m]
+        min_height: 0.1
+        
+        # 最大障碍物高度 [m]
+        max_height: 2.5
+        
+        # 忽略静止障碍物的距离阈值 [m]
+        # 距离超过此值的静止障碍物将被忽略
+        ignore_static_beyond_distance: 10.0
+    
+    # 碰撞预测参数
+    collision_prediction:
+      # 预测时间范围 [s]
+      # 室内环境速度较低，使用较短时间
+      time_horizon: 3.0
+      
+      # 预测时间步长 [s]
+      time_step: 0.1
+      
+      # 碰撞检查分辨率 [m]
+      check_resolution: 0.3
+      
+      # 安全边界 [m]
+      # 车辆边界向外扩展的安全距离
+      safety_margin: 0.3
+      
+      # 考虑障碍物速度不确定性
+      consider_velocity_uncertainty: true
+      
+      # 速度不确定性标准差 [m/s]
+      velocity_uncertainty_std: 0.2
+    
+    # 自适应巡航控制（ACC）
+    adaptive_cruise_control:
+      # 是否启用ACC
+      enable: true
+      
+      # 时间间隔 [s]
+      # 期望的时间跟车距离
+      time_headway: 1.5
+      
+      # 最小跟车距离 [m]
+      min_following_distance: 1.0
+      
+      # 最大跟车距离 [m]
+      max_following_distance: 5.0
+      
+      # 速度匹配增益
+      # 用于调整跟随速度与障碍物速度的匹配程度
+      velocity_matching_gain: 0.5
+      
+      # 距离保持增益
+      # 用于保持目标跟车距离
+      distance_keeping_gain: 0.3
+      
+      # ACC速度平滑时间常数 [s]
+      velocity_smoothing_time_constant: 0.5
+    
+    # 减速规划参数
+    deceleration_planning:
+      # 舒适减速度 [m/s²]
+      # 正常情况下的减速度
+      comfort_decel: 0.5
+      
+      # 最大减速度 [m/s²]
+      # 紧急情况下的最大减速度
+      max_decel: 0.8
+      
+      # 减速度增益
+      # 根据障碍物距离动态调整减速度
+      # [距离[m], 减速度比例]
+      distance_to_decel_ratio:
+        - [0.5, 1.0]    # 0.5米内最大减速
+        - [1.0, 0.8]    # 1米处80%减速
+        - [2.0, 0.6]    # 2米处60%减速
+        - [3.0, 0.4]    # 3米处40%减速
+        - [5.0, 0.2]    # 5米外20%减速
+      
+      # 减速提前量 [s]
+      # 提前开始减速的时间
+      decel_anticipation_time: 0.5
+    
+    # 障碍物速度估计
+    obstacle_velocity_estimation:
+      # 估计方法
+      # - "finite_difference": 有限差分法
+      # - "kalman_filter": 卡尔曼滤波
+      method: "kalman_filter"
+      
+      # 有限差分参数
+      finite_difference:
+        # 时间窗口 [s]
+        time_window: 0.5
+      
+      # 卡尔曼滤波参数
+      kalman_filter:
+        # 过程噪声协方差
+        process_noise_cov: 0.1
+        
+        # 测量噪声协方差
+        measurement_noise_cov: 0.5
+        
+        # 初始状态协方差
+        initial_state_cov: 1.0
+      
+      # 速度平滑滤波器
+      velocity_smoothing:
+        # 是否启用
+        enable: true
+        
+        # 滤波器类型
+        # - "moving_average": 移动平均
+        # - "exponential": 指数加权
+        filter_type: "exponential"
+        
+        # 窗口大小（移动平均）
+        window_size: 5
+        
+        # 平滑系数（指数加权）
+        smoothing_alpha: 0.3
+    
+    # 多障碍物处理
+    multiple_obstacles:
+      # 处理策略
+      # - "closest": 仅考虑最近障碍物
+      # - "most_critical": 考虑最危险障碍物
+      # - "all": 考虑所有障碍物
+      strategy: "most_critical"
+      
+      # 危险度评估权重
+      criticality_weights:
+        # 距离权重
+        distance: 0.4
+        
+        # 相对速度权重
+        relative_velocity: 0.3
+        
+        # 碰撞时间权重
+        time_to_collision: 0.3
+    
+    # 停止点精确控制
+    stop_point_control:
+      # 停止点容差 [m]
+      stop_tolerance: 0.1
+      
+      # 接近停止点的速度 [m/s]
+      approaching_velocity: 0.3
+      
+      # 切换到接近速度的距离 [m]
+      approaching_distance: 1.0
+      
+      # 停止速度阈值 [m/s]
+      stop_velocity_threshold: 0.01
+    
+    # 侧向避障（有限支持）
+    lateral_avoidance:
+      # 是否启用侧向避障
+      # 室内环境通道较窄，侧向避障能力有限
+      enable: false
+      
+      # 最小侧向间隙 [m]
+      min_lateral_gap: 0.8
+      
+      # 最大侧向偏移 [m]
+      max_lateral_offset: 0.5
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布障碍物预测轨迹
+      publish_predicted_trajectories: true
+      
+      # 发布碰撞检查结果
+      publish_collision_check: false
+      
+      # 打印处理时间
+      print_processing_time: false
+      
+      # 发布速度剖面
+      publish_velocity_profile: true
+

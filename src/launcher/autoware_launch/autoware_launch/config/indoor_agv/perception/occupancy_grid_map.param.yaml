@@ -1,0 +1,111 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV占据栅格地图参数配置
+    # ============================================
+    # 功能：基于激光雷达点云生成占据栅格地图
+    # 适用场景：室内环境障碍物检测
+    # 特点：高分辨率、小范围、实时更新
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 地图长度 [m]
+    # 室内环境范围较小，设置较小值
+    # 以车辆为中心的正方形地图边长
+    map_length: 50.0
+    
+    # 地图分辨率 [m]
+    # 室内环境需要高精度，使用0.1-0.2米
+    # 分辨率越小，栅格越精细，但计算量越大
+    map_resolution: 0.1
+
+    height_filter:
+      # 高度滤波器配置
+      # 用于过滤点云中的非障碍物点
+      
+      # 是否启用高度滤波
+      use_height_filter: true
+      
+      # 最小高度 [m]
+      # 过滤地面以下的点
+      # 相对于base_link坐标系
+      min_height: -0.5
+      
+      # 最大高度 [m]
+      # 过滤天花板和高处物体
+      # 室内AGV通常只关注2米以下的障碍物
+      max_height: 2.5
+
+    # 输入点云降采样
+    # 是否对输入点云进行降采样以减少计算量
+    downsample_input_pointcloud: false
+    
+    # 降采样体素尺寸 [m]
+    # 如果启用降采样，使用此体素大小
+    downsample_voxel_size: 0.125
+
+    # 单帧模式
+    # 是否仅使用单帧点云生成栅格地图
+    # 室内环境建议启用，提高实时性
+    enable_single_frame_mode: true
+    
+    # 使用原始点云过滤障碍物点云
+    # 用于减少动态障碍物的误检
+    filter_obstacle_pointcloud_by_raw_pointcloud: false
+
+    # 栅格地图坐标系配置
+    
+    # 地图坐标系
+    map_frame: "map"
+    
+    # 车辆基准坐标系
+    base_link_frame: "base_link"
+    
+    # 栅格地图原点坐标系
+    # 栅格地图的中心位置
+    # 使用base_link表示以车辆为中心
+    gridmap_origin_frame: "base_link"
+    
+    # 射线追踪中心坐标系
+    # 用于盲区检测
+    # 建议使用主激光雷达坐标系
+    scan_origin_frame: "base_link"
+
+    # 栅格地图类型
+    # OccupancyGridMapFixedBlindSpot: 固定盲区
+    # OccupancyGridMapProjectiveBlindSpot: 投影盲区
+    # 室内环境建议使用固定盲区，更稳定
+    grid_map_type: "OccupancyGridMapFixedBlindSpot"
+    
+    OccupancyGridMapFixedBlindSpot:
+      # 距离边缘 [m]
+      # 车辆周围的盲区范围
+      # 室内AGV体积较小，使用较小值
+      distance_margin: 0.5
+    
+    OccupancyGridMapProjectiveBlindSpot:
+      # 投影DZ阈值 [m]
+      # 用于避免除零错误
+      projection_dz_threshold: 0.01
+      
+      # 障碍物分离阈值 [m]
+      # 障碍物之间的间隔如果小于此值，将被填充为未知
+      obstacle_separation_threshold: 1.0
+      
+      # 发布调试栅格
+      pub_debug_grid: false
+
+    # 调试参数
+    
+    # 发布处理时间详情
+    publish_processing_time_detail: false
+    
+    # 处理时间容限 [ms]
+    # 超过此时间将发出警告
+    # 室内环境计算量小，设置较小值
+    processing_time_tolerance_ms: 30.0
+    
+    # 连续超时容限 [ms]
+    # 连续超时累计时间超过此值将发出错误
+    processing_time_consecutive_excess_tolerance_ms: 500.0
+

@@ -1,0 +1,258 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV原始车辆命令转换器参数配置
+    # ============================================
+    # 功能：将Autoware控制命令转换为车辆底层命令
+    # 适用场景：室内AGV底盘控制
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 转换模式
+    # - "direct": 直接映射
+    # - "calibrated": 使用标定参数
+    conversion_mode: "calibrated"
+    
+    # 速度命令转换
+    velocity_conversion:
+      # 速度单位转换
+      # Autoware使用m/s，车辆可能使用其他单位
+      # 转换因子：车辆单位 = Autoware单位 × 转换因子
+      conversion_factor: 1.0
+      
+      # 速度偏移
+      # 车辆单位 = (Autoware单位 × 转换因子) + 偏移
+      offset: 0.0
+      
+      # 速度死区 [m/s]
+      # 小于此值的速度命令将被置零
+      deadzone: 0.05
+      
+      # 速度标定表
+      # [Autoware速度, 实际车辆速度]
+      calibration_table:
+        - [0.0, 0.0]
+        - [0.5, 0.5]
+        - [1.0, 1.0]
+        - [1.5, 1.5]
+    
+    # 转向命令转换
+    steering_conversion:
+      # 转向角单位转换
+      # Autoware使用rad，车辆可能使用度或其他单位
+      # 前轮转角 [rad] 到车辆命令的转换
+      conversion_factor: 1.0
+      
+      # 转向偏移
+      offset: 0.0
+      
+      # 转向死区 [rad]
+      deadzone: 0.01
+      
+      # 转向比
+      # 方向盘转角 / 前轮转角
+      steering_ratio: 15.0
+      
+      # 最大转向角 [rad]
+      max_steering_angle: 0.524
+      
+      # 转向标定表
+      # [Autoware转向角, 实际车辆转向角]
+      calibration_table:
+        - [-0.524, -0.524]
+        - [0.0, 0.0]
+        - [0.524, 0.524]
+    
+    # 加速度命令转换
+    acceleration_conversion:
+      # 加速度到油门的映射
+      # 油门开度 [%] = 加速度 [m/s²] × 增益
+      throttle_gain: 20.0
+      
+      # 油门偏移 [%]
+      throttle_offset: 0.0
+      
+      # 油门死区 [%]
+      throttle_deadzone: 1.0
+      
+      # 最大油门开度 [%]
+      max_throttle: 100.0
+      
+      # 减速度到制动的映射
+      # 制动压力 [%] = 减速度 [m/s²] × 增益
+      brake_gain: 25.0
+      
+      # 制动偏移 [%]
+      brake_offset: 0.0
+      
+      # 制动死区 [%]
+      brake_deadzone: 1.0
+      
+      # 最大制动压力 [%]
+      max_brake: 100.0
+    
+    # 差速控制（如果适用）
+    differential_control:
+      # 是否启用差速控制
+      # 某些AGV使用差速驱动
+      enable: false
+      
+      # 轮距 [m]
+      # 左右轮之间的距离
+      wheel_base: 0.6
+      
+      # 车轮半径 [m]
+      wheel_radius: 0.1
+      
+      # 左轮增益
+      left_wheel_gain: 1.0
+      
+      # 右轮增益
+      right_wheel_gain: 1.0
+    
+    # 命令限幅
+    command_limiting:
+      # 是否启用命令限幅
+      enable: true
+      
+      # 速度命令限幅
+      velocity_limits:
+        # 最大前进速度 [m/s]
+        max_forward: 1.5
+        
+        # 最大后退速度 [m/s]
+        max_reverse: 0.5
+        
+        # 最大速度变化率 [m/s²]
+        max_rate: 0.8
+      
+      # 转向命令限幅
+      steering_limits:
+        # 最大转向角 [rad]
+        max_angle: 0.524
+        
+        # 最大转向角速度 [rad/s]
+        max_rate: 0.5
+      
+      # 油门命令限幅
+      throttle_limits:
+        # 最大油门 [%]
+        max: 100.0
+        
+        # 最大油门变化率 [%/s]
+        max_rate: 50.0
+      
+      # 制动命令限幅
+      brake_limits:
+        # 最大制动 [%]
+        max: 100.0
+        
+        # 最大制动变化率 [%/s]
+        max_rate: 80.0
+    
+    # 命令平滑
+    command_smoothing:
+      # 是否启用命令平滑
+      enable: true
+      
+      # 速度命令平滑
+      velocity_smoothing:
+        # 滤波器类型
+        # - "low_pass": 低通滤波
+        # - "moving_average": 移动平均
+        filter_type: "low_pass"
+        
+        # 截止频率 [Hz]
+        cutoff_frequency: 5.0
+        
+        # 移动平均窗口大小
+        window_size: 5
+      
+      # 转向命令平滑
+      steering_smoothing:
+        filter_type: "low_pass"
+        cutoff_frequency: 3.0
+        window_size: 3
+    
+    # 车辆特性补偿
+    vehicle_characteristics:
+      # 启动延迟补偿 [s]
+      # 从命令发出到车辆响应的延迟
+      actuation_delay: 0.05
+      
+      # 是否启用延迟补偿
+      enable_delay_compensation: true
+      
+      # 非线性补偿
+      enable_nonlinearity_compensation: true
+      
+      # 低速补偿
+      low_speed_compensation:
+        # 是否启用
+        enable: true
+        
+        # 低速阈值 [m/s]
+        threshold: 0.5
+        
+        # 低速增益
+        gain: 1.2
+    
+    # 安全功能
+    safety_features:
+      # 看门狗定时器
+      watchdog:
+        # 是否启用
+        enable: true
+        
+        # 超时时间 [s]
+        timeout: 0.5
+        
+        # 超时后的行为
+        # - "stop": 停止
+        # - "maintain": 保持当前状态
+        timeout_behavior: "stop"
+      
+      # 命令验证
+      command_validation:
+        # 是否启用
+        enable: true
+        
+        # 检查命令一致性
+        check_consistency: true
+        
+        # 检查命令范围
+        check_range: true
+    
+    # 诊断
+    diagnostics:
+      # 是否启用诊断
+      enable: true
+      
+      # 诊断频率 [Hz]
+      frequency: 1.0
+      
+      # 监控项目
+      monitor_items:
+        # 监控命令延迟
+        command_delay: true
+        
+        # 监控转换错误
+        conversion_errors: true
+        
+        # 监控命令饱和
+        command_saturation: true
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布原始命令
+      publish_raw_commands: false
+      
+      # 发布转换后命令
+      publish_converted_commands: true
+      
+      # 打印命令信息
+      print_command_info: false
+

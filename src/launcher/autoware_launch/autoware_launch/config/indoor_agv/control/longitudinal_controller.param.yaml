@@ -1,0 +1,311 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV纵向控制器参数配置
+    # ============================================
+    # 功能：速度跟踪控制（加速/制动）
+    # 控制器类型：PID控制器
+    # 适用场景：室内低速精确速度控制
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 控制器类型
+    # - "pid": PID控制器（推荐）
+    # - "adaptive": 自适应控制器
+    controller_type: "pid"
+    
+    # ========== PID 控制器参数 ==========
+    pid:
+      # 比例增益 (P)
+      # 室内环境需要快速响应，使用适中P值
+      kp: 1.0
+      
+      # 积分增益 (I)
+      # 用于消除稳态误差
+      # 室内环境稳定，可以使用较小I值
+      ki: 0.1
+      
+      # 微分增益 (D)
+      # 用于预测和减少超调
+      # 室内环境平稳，使用适中D值
+      kd: 0.05
+      
+      # 积分饱和限制
+      # 防止积分项过大
+      integral_saturation_limit: 5.0
+      
+      # 抗积分饱和
+      enable_anti_windup: true
+      
+      # 误差死区 [m/s]
+      # 误差小于此值时不进行控制
+      # 避免在目标速度附近抖动
+      error_deadzone: 0.05
+      
+      # 微分滤波时间常数 [s]
+      # 用于平滑微分项
+      derivative_filter_time_constant: 0.1
+    
+    # ========== 速度跟踪参数 ==========
+    velocity_tracking:
+      # 最大速度误差 [m/s]
+      # 超过此误差触发警告
+      max_velocity_error: 0.5
+      
+      # 速度误差容差 [m/s]
+      # 在此容差内视为跟踪成功
+      velocity_error_tolerance: 0.1
+      
+      # 速度平滑滤波
+      enable_velocity_smoothing: true
+      
+      # 速度平滑窗口大小
+      velocity_smoothing_window: 5
+    
+    # ========== 加速度限制 ==========
+    acceleration_limits:
+      # 最大加速度 [m/s²]
+      max_acceleration: 0.5
+      
+      # 最大减速度 [m/s²]
+      max_deceleration: 0.8
+      
+      # 舒适加速度 [m/s²]
+      # 正常情况下使用的加速度
+      comfort_acceleration: 0.3
+      
+      # 舒适减速度 [m/s²]
+      comfort_deceleration: 0.5
+      
+      # 紧急减速度 [m/s²]
+      # 紧急情况下的最大减速度
+      emergency_deceleration: 1.5
+      
+      # 加速度斜率限制 [m/s³]
+      # 限制加速度变化率（急动度）
+      max_jerk: 0.5
+    
+    # ========== 速度模式控制 ==========
+    speed_mode_control:
+      # 低速模式参数
+      low_speed:
+        # 低速阈值 [m/s]
+        threshold: 0.5
+        
+        # 低速PID增益调整
+        # 实际增益 = 基础增益 × 调整因子
+        kp_scaling: 1.2
+        ki_scaling: 1.5
+        kd_scaling: 0.8
+      
+      # 高速模式参数
+      high_speed:
+        # 高速阈值 [m/s]
+        threshold: 1.2
+        
+        # 高速PID增益调整
+        kp_scaling: 0.8
+        ki_scaling: 0.5
+        kd_scaling: 1.2
+      
+      # 零速模式参数
+      zero_speed:
+        # 零速阈值 [m/s]
+        threshold: 0.1
+        
+        # 零速时的制动力 [%]
+        brake_force_percentage: 100.0
+        
+        # 零速保持制动
+        hold_brake_at_zero_speed: true
+    
+    # ========== 坡度补偿 ==========
+    slope_compensation:
+      # 是否启用坡度补偿
+      # 室内环境通常为平地，可以禁用
+      enable: false
+      
+      # 坡度估计方法
+      # - "imu": 使用IMU倾角
+      # - "model": 使用车辆模型估计
+      estimation_method: "imu"
+      
+      # 补偿增益
+      compensation_gain: 0.5
+      
+      # 最大补偿量 [m/s²]
+      max_compensation: 0.3
+    
+    # ========== 车轮滑动补偿 ==========
+    wheel_slip_compensation:
+      # 是否启用
+      # 室内环境地面条件好，通常不需要
+      enable: false
+      
+      # 滑动率阈值
+      slip_ratio_threshold: 0.1
+      
+      # 补偿增益
+      compensation_gain: 0.5
+    
+    # ========== 前馈控制 ==========
+    feedforward_control:
+      # 是否启用前馈控制
+      # 前馈可以提高响应速度
+      enable: true
+      
+      # 加速度前馈增益
+      acceleration_feedforward_gain: 0.8
+      
+      # 速度前馈增益
+      velocity_feedforward_gain: 0.5
+      
+      # 前馈平滑滤波
+      enable_feedforward_smoothing: true
+      
+      # 平滑时间常数 [s]
+      feedforward_smoothing_time_constant: 0.1
+    
+    # ========== 停止控制 ==========
+    stop_control:
+      # 停止距离容差 [m]
+      stop_distance_tolerance: 0.1
+      
+      # 停止速度阈值 [m/s]
+      stop_velocity_threshold: 0.01
+      
+      # 接近停止点的速度 [m/s]
+      # 缓慢接近停止点
+      approaching_velocity: 0.2
+      
+      # 切换到接近速度的距离 [m]
+      approaching_distance: 1.0
+      
+      # 停止时的制动增益
+      stop_brake_gain: 2.0
+      
+      # 停止后保持制动
+      hold_brake_after_stop: true
+      
+      # 停止后延迟时间 [s]
+      # 停止后等待此时间再释放制动
+      stop_hold_delay: 0.5
+    
+    # ========== 速度指令处理 ==========
+    velocity_command_processing:
+      # 速度指令超时 [s]
+      command_timeout: 1.0
+      
+      # 超时后的行为
+      # - "stop": 停止
+      # - "maintain": 保持当前速度
+      # - "coast": 滑行
+      timeout_behavior: "stop"
+      
+      # 速度指令滤波
+      enable_command_filtering: true
+      
+      # 滤波器类型
+      # - "low_pass": 低通滤波
+      # - "moving_average": 移动平均
+      filter_type: "low_pass"
+      
+      # 滤波器截止频率 [Hz]
+      filter_cutoff_frequency: 5.0
+      
+      # 移动平均窗口大小
+      moving_average_window: 5
+    
+    # ========== 加速度规划 ==========
+    acceleration_planning:
+      # 是否启用加速度规划
+      enable: true
+      
+      # 规划方法
+      # - "linear": 线性加速
+      # - "s_curve": S曲线加速
+      planning_method: "s_curve"
+      
+      # S曲线参数
+      s_curve:
+        # 急动度限制 [m/s³]
+        jerk_limit: 0.5
+        
+        # 加速阶段比例
+        acceleration_phase_ratio: 0.4
+        
+        # 匀速阶段比例
+        constant_phase_ratio: 0.2
+        
+        # 减速阶段比例
+        deceleration_phase_ratio: 0.4
+    
+    # ========== 扭矩控制（可选） ==========
+    torque_control:
+      # 是否使用扭矩控制
+      # 如果AGV支持直接扭矩控制
+      enable: false
+      
+      # 最大驱动扭矩 [Nm]
+      max_drive_torque: 50.0
+      
+      # 最大制动扭矩 [Nm]
+      max_brake_torque: 80.0
+      
+      # 扭矩到加速度的转换系数
+      torque_to_acceleration_ratio: 0.5
+    
+    # ========== 安全限制 ==========
+    safety_limits:
+      # 最大控制输出 [%]
+      max_control_output: 100.0
+      
+      # 最小控制输出 [%]
+      min_control_output: -100.0
+      
+      # 控制输出变化率限制 [%/s]
+      max_control_output_rate: 50.0
+      
+      # 启用软限制
+      enable_soft_limits: true
+      
+      # 软限制过渡区域 [%]
+      soft_limit_transition_region: 10.0
+    
+    # ========== 性能监控 ==========
+    performance_monitoring:
+      # 是否启用
+      enable: true
+      
+      # 监控跟踪误差
+      monitor_tracking_error: true
+      
+      # 监控响应时间
+      monitor_response_time: true
+      
+      # 目标响应时间 [s]
+      target_response_time: 0.5
+      
+      # 监控超调
+      monitor_overshoot: true
+      
+      # 允许的超调量 [m/s]
+      allowed_overshoot: 0.2
+    
+    # ========== 调试参数 ==========
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布控制误差
+      publish_control_error: true
+      
+      # 发布PID各项
+      publish_pid_terms: false
+      
+      # 打印控制状态
+      print_control_status: false
+      
+      # 记录控制数据
+      log_control_data: false
+

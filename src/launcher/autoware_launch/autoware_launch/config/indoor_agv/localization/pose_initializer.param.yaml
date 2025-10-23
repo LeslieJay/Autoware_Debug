@@ -1,0 +1,52 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV位姿初始化器参数配置
+    # ============================================
+    # 功能：设置车辆初始位姿
+    # 适用场景：室内AGV启动时的位姿设定
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 位姿初始化节点名称
+    node_name: "pose_initializer"
+    
+    # 初始化方式配置
+    # 支持多种初始化方式：
+    # - rviz: 通过RViz手动设置初始位姿
+    # - gnss: 通过GNSS设置初始位姿（室内不适用）
+    # - ndt: 通过NDT自动初始化
+    # - saved: 从保存的位置读取
+    
+    # 室内AGV推荐使用RViz手动设置或保存的位置
+    initialization_method: "rviz"
+    
+    # 位姿话题配置
+    pose_topics:
+      # RViz初始位姿话题
+      rviz_initial_pose: "/initialpose"
+      
+      # NDT初始位姿话题
+      ndt_initial_pose: "/ndt_pose"
+      
+      # 保存的初始位姿话题
+      saved_initial_pose: "/saved_initial_pose"
+    
+    # 位姿设置超时 [s]
+    # 等待初始位姿的最大时间
+    pose_timeout: 10.0
+    
+    # 位姿源优先级
+    # 按优先级顺序排列
+    pose_source_priority: ["rviz", "saved", "ndt"]
+    
+    # 自动初始化配置
+    auto_initialization:
+      # 是否启用自动初始化
+      # 室内环境建议关闭，采用手动设置
+      enable: false
+      
+      # 自动初始化的默认位姿
+      # [x, y, z, roll, pitch, yaw]
+      default_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+

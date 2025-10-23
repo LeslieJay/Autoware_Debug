@@ -1,0 +1,245 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV运动速度规划器参数配置
+    # ============================================
+    # 功能：轨迹级别的速度规划和优化
+    # 适用场景：室内环境平滑速度规划
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 规划频率 [Hz]
+    planning_hz: 20.0
+    
+    # 动力学约束
+    dynamics:
+      # 最大速度 [m/s]
+      max_velocity: 1.5
+      
+      # 最小速度 [m/s]
+      min_velocity: 0.0
+      
+      # 最大加速度 [m/s²]
+      max_acceleration: 0.5
+      
+      # 最大减速度 [m/s²]
+      max_deceleration: 0.8
+      
+      # 最大急动度 [m/s³]
+      # 室内环境需要平稳运动
+      max_jerk: 0.5
+      
+      # 最小急动度 [m/s³]
+      min_jerk: -0.5
+      
+      # 最大横向加速度 [m/s²]
+      max_lateral_acceleration: 0.5
+      
+      # 最大横向急动度 [m/s³]
+      max_lateral_jerk: 0.3
+    
+    # 障碍物巡航参数
+    obstacle_cruise:
+      # 是否启用障碍物巡航
+      enable: true
+      
+      # 巡航速度 [m/s]
+      # 跟随前方障碍物时的速度
+      cruise_velocity: 0.8
+      
+      # 跟随距离 [m]
+      # 与前方障碍物保持的距离
+      following_distance: 2.0
+      
+      # 时间间隔 [s]
+      # 基于时间的跟随距离 = 速度 × 时间间隔
+      time_headway: 1.5
+      
+      # 最小跟随距离 [m]
+      min_following_distance: 1.0
+      
+      # 最大跟随距离 [m]
+      max_following_distance: 5.0
+      
+      # 障碍物速度估计平滑系数
+      obstacle_velocity_smoothing_alpha: 0.3
+    
+    # 动态障碍物停止参数
+    dynamic_obstacle_stop:
+      # 是否启用动态障碍物停止
+      enable: true
+      
+      # 停止距离 [m]
+      stop_distance: 1.0
+      
+      # 预测时间 [s]
+      # 预测障碍物未来位置的时间
+      prediction_time_horizon: 3.0
+      
+      # 碰撞检查分辨率 [m]
+      collision_check_resolution: 0.5
+      
+      # 安全边界 [m]
+      safety_margin: 0.3
+    
+    # 速度限制器参数
+    velocity_limiter:
+      # 是否启用速度限制器
+      enable: true
+      
+      # 曲率速度限制
+      curvature_limit:
+        # 是否启用
+        enable: true
+        
+        # 最大横向加速度 [m/s²]
+        max_lateral_accel: 0.5
+        
+        # 曲率平滑窗口 [m]
+        smoothing_window: 3.0
+      
+      # 坡度速度限制
+      slope_limit:
+        # 是否启用
+        # 室内环境通常为平地，可以禁用
+        enable: false
+        
+        # 上坡速度比例
+        uphill_speed_ratio: 0.8
+        
+        # 下坡速度比例
+        downhill_speed_ratio: 0.9
+        
+        # 坡度阈值 [度]
+        slope_threshold: 5.0
+      
+      # 地图速度限制
+      map_limit:
+        # 是否启用
+        enable: true
+        
+        # 速度限制过渡距离 [m]
+        transition_distance: 5.0
+    
+    # 速度平滑器参数
+    velocity_smoother:
+      # 平滑算法类型
+      # - "l2": L2范数优化
+      # - "jerk_filtered": 急动度滤波
+      # - "analytical": 解析方法
+      algorithm_type: "jerk_filtered"
+      
+      # L2优化参数
+      l2:
+        # 权重
+        weight_jerk: 1.0
+        weight_over_vel: 100.0
+        weight_over_acc: 1000.0
+        
+        # 最大迭代次数
+        max_iterations: 100
+        
+        # 收敛阈值
+        convergence_threshold: 0.01
+      
+      # 急动度滤波参数
+      jerk_filtered:
+        # 急动度限制 [m/s³]
+        jerk_limit: 0.5
+        
+        # 滤波器窗口大小
+        filter_window_size: 5
+      
+      # 解析方法参数
+      analytical:
+        # 加速度约束缩放因子
+        acc_constraint_scaling: 0.95
+        
+        # 急动度约束缩放因子
+        jerk_constraint_scaling: 0.95
+    
+    # 路径速度分配
+    path_velocity_assignment:
+      # 速度分配策略
+      # - "constant": 恒定速度
+      # - "trapezoidal": 梯形速度曲线
+      # - "s_curve": S曲线速度
+      strategy: "s_curve"
+      
+      # 恒定速度值 [m/s]
+      constant_velocity: 1.0
+      
+      # 加速段长度比例
+      acceleration_phase_ratio: 0.3
+      
+      # 匀速段长度比例
+      constant_phase_ratio: 0.4
+      
+      # 减速段长度比例
+      deceleration_phase_ratio: 0.3
+    
+    # 停止点速度规划
+    stop_point_velocity:
+      # 停止点减速距离 [m]
+      # 到达停止点前的减速距离
+      # 室内环境使用较小值
+      decel_distance_to_stop: 3.0
+      
+      # 停止点容差 [m]
+      stop_point_tolerance: 0.1
+      
+      # 停止速度阈值 [m/s]
+      stop_velocity_threshold: 0.01
+      
+      # 接近停止点的速度 [m/s]
+      # 缓慢接近停止点的速度
+      approaching_velocity: 0.3
+      
+      # 接近距离 [m]
+      # 切换到接近速度的距离
+      approaching_distance: 1.0
+    
+    # 前瞻距离配置
+    lookahead:
+      # 基础前瞻距离 [m]
+      base_lookahead_distance: 5.0
+      
+      # 速度依赖前瞻距离
+      # 前瞻距离 = 基础距离 + 速度 × 系数
+      velocity_dependent_coefficient: 2.0
+      
+      # 最小前瞻距离 [m]
+      min_lookahead_distance: 3.0
+      
+      # 最大前瞻距离 [m]
+      max_lookahead_distance: 15.0
+    
+    # 安全检查
+    safety_check:
+      # 是否启用安全检查
+      enable: true
+      
+      # 最小安全距离 [m]
+      min_safety_distance: 0.5
+      
+      # 碰撞检查频率 [Hz]
+      collision_check_frequency: 20.0
+      
+      # 速度安全因子
+      # 实际速度 = 规划速度 × 安全因子
+      velocity_safety_factor: 0.95
+    
+    # 调试参数
+    debug:
+      # 发布调试轨迹
+      publish_debug_trajectory: false
+      
+      # 发布速度剖面
+      publish_velocity_profile: true
+      
+      # 打印规划时间
+      print_planning_time: false
+      
+      # 发布优化过程
+      publish_optimization_process: false
+

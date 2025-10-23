@@ -1,0 +1,162 @@
+# 室内AGV系统诊断配置
+# 用于监控系统健康状态和性能
+
+/autoware:
+  type: diagnostic_aggregator/AnalyzerGroup
+  path: autoware
+  analyzers:
+    # 定位系统诊断
+    localization:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: localization
+      analyzers:
+        ekf:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: ekf_localizer
+          contains: ["ekf_localizer"]
+          timeout: 1.0
+        
+        ndt:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: ndt_scan_matcher
+          contains: ["ndt_scan_matcher"]
+          timeout: 1.0
+        
+        pose:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: pose_estimator
+          contains: ["pose"]
+          timeout: 1.0
+    
+    # 感知系统诊断
+    perception:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: perception
+      analyzers:
+        obstacle_detection:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: obstacle_detection
+          contains: ["obstacle", "detection"]
+          timeout: 1.0
+        
+        occupancy_grid:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: occupancy_grid
+          contains: ["occupancy_grid"]
+          timeout: 1.0
+        
+        ground_segmentation:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: ground_segmentation
+          contains: ["ground_segmentation"]
+          timeout: 1.0
+    
+    # 规划系统诊断
+    planning:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: planning
+      analyzers:
+        mission_planner:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: mission_planner
+          contains: ["mission_planner"]
+          timeout: 1.0
+        
+        behavior_planner:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: behavior_planner
+          contains: ["behavior"]
+          timeout: 1.0
+        
+        velocity_planner:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: velocity_planner
+          contains: ["velocity"]
+          timeout: 1.0
+    
+    # 控制系统诊断
+    control:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: control
+      analyzers:
+        trajectory_follower:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: trajectory_follower
+          contains: ["trajectory_follower"]
+          timeout: 1.0
+        
+        lateral_controller:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: lateral_controller
+          contains: ["lateral"]
+          timeout: 0.5
+        
+        longitudinal_controller:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: longitudinal_controller
+          contains: ["longitudinal"]
+          timeout: 0.5
+        
+        vehicle_cmd_gate:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: vehicle_cmd_gate
+          contains: ["vehicle_cmd_gate"]
+          timeout: 0.5
+    
+    # 传感器诊断
+    sensing:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: sensing
+      analyzers:
+        lidar:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: lidar
+          contains: ["lidar", "velodyne", "sick"]
+          timeout: 1.0
+        
+        imu:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: imu
+          contains: ["imu"]
+          timeout: 1.0
+    
+    # 车辆系统诊断
+    vehicle:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: vehicle
+      analyzers:
+        interface:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: vehicle_interface
+          contains: ["vehicle_interface"]
+          timeout: 0.5
+        
+        status:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: vehicle_status
+          contains: ["vehicle_status"]
+          timeout: 0.5
+    
+    # 系统资源诊断
+    system:
+      type: diagnostic_aggregator/AnalyzerGroup
+      path: system
+      analyzers:
+        cpu:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: cpu
+          contains: ["CPU"]
+          timeout: 5.0
+        
+        memory:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: memory
+          contains: ["Memory"]
+          timeout: 5.0
+        
+        disk:
+          type: diagnostic_aggregator/GenericAnalyzer
+          path: disk
+          contains: ["Disk", "HDD"]
+          timeout: 5.0
+

@@ -1,0 +1,138 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV欧几里得聚类参数配置
+    # ============================================
+    # 功能：将障碍物点云聚类成独立对象
+    # 适用场景：室内环境障碍物检测
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 聚类算法参数
+    cluster:
+      # 聚类容差 [m]
+      # 两个点之间的最大距离，小于此距离被视为同一簇
+      # 室内环境障碍物较密集，使用较小值
+      cluster_tolerance: 0.2
+      
+      # 最小聚类大小 [点数]
+      # 少于此数量点的聚类将被忽略（视为噪声）
+      # 室内环境可以设置较小值以检测小物体
+      min_cluster_size: 15
+      
+      # 最大聚类大小 [点数]
+      # 超过此数量点的聚类将被分割或视为整体
+      # 室内环境障碍物通常较小
+      max_cluster_size: 10000
+      
+      # 使用多核心处理
+      use_multiple_thres: false
+      
+      # 多阈值设置（当use_multiple_thres为true时使用）
+      # 根据距离使用不同的聚类阈值
+      cluster_thresholds:
+        # [距离范围[m], 聚类容差[m]]
+        - [0.0, 5.0, 0.15]    # 5米内使用0.15米阈值
+        - [5.0, 10.0, 0.25]   # 5-10米使用0.25米阈值
+        - [10.0, 20.0, 0.35]  # 10-20米使用0.35米阈值
+
+    # 对象大小过滤
+    size_filter:
+      # 是否启用大小过滤
+      enable: true
+      
+      # 最小对象尺寸 [m]
+      # [长, 宽, 高]
+      # 室内环境中，过滤掉过小的噪声
+      min_size: [0.05, 0.05, 0.05]
+      
+      # 最大对象尺寸 [m]
+      # [长, 宽, 高]
+      # 室内环境中的最大障碍物尺寸
+      max_size: [5.0, 5.0, 3.0]
+
+    # 对象形状过滤
+    shape_filter:
+      # 是否启用形状过滤
+      enable: false
+      
+      # 长宽比阈值
+      # 过滤异常细长的对象
+      aspect_ratio_threshold: 10.0
+
+    # 边界框计算
+    bounding_box:
+      # 边界框类型
+      # - "aabb": 轴对齐边界框（计算快速）
+      # - "obb": 方向边界框（更准确）
+      # 室内环境建议使用OBB
+      type: "obb"
+      
+      # 是否发布边界框可视化
+      publish_visualization: true
+
+    # 对象分类（简单分类）
+    classification:
+      # 是否启用基于大小的简单分类
+      enable: true
+      
+      # 分类规则（基于边界框尺寸）
+      # 类别定义：
+      # - UNKNOWN: 未知对象
+      # - SMALL: 小型障碍物（如箱子）
+      # - MEDIUM: 中型障碍物（如推车）
+      # - LARGE: 大型障碍物（如货架）
+      
+      # 小型障碍物最大尺寸 [m]
+      small_object_max_size: [0.5, 0.5, 0.8]
+      
+      # 中型障碍物最大尺寸 [m]
+      medium_object_max_size: [1.5, 1.5, 2.0]
+
+    # 性能优化
+    performance:
+      # 输入点云降采样
+      downsample_input:
+        # 是否启用降采样
+        enable: false
+        
+        # 体素叶子大小 [m]
+        leaf_size: 0.05
+      
+      # 使用KD树加速
+      use_kdtree: true
+      
+      # 最大处理点数
+      # 超过此数量将进行降采样
+      max_points: 50000
+
+    # 输出配置
+    output:
+      # 发布聚类点云
+      publish_clusters: true
+      
+      # 发布对象数组
+      publish_objects: true
+      
+      # 发布可视化标记
+      publish_markers: true
+      
+      # 对象ID持久化
+      # 尝试在连续帧之间保持对象ID一致
+      persistent_object_id: true
+      
+      # 对象ID最大年龄 [帧数]
+      # 对象消失后保持ID的最大帧数
+      max_id_age: 10
+
+    # 调试参数
+    debug:
+      # 是否发布调试信息
+      publish_debug_info: false
+      
+      # 处理时间监控
+      monitor_processing_time: true
+      
+      # 最大允许处理时间 [ms]
+      max_processing_time_ms: 40.0
+

@@ -1,0 +1,133 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV点云地图加载器参数配置
+    # ============================================
+    # 功能：加载和处理室内环境点云地图
+    # 适用场景：NDT定位用点云地图
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 地图加载模式
+    # - "whole": 加载全部地图
+    # - "partial": 部分加载（动态加载）
+    # 室内环境地图较小，可以全部加载
+    loading_mode: "whole"
+    
+    # 全地图加载参数
+    whole_map:
+      # 是否启用地图降采样
+      # 室内环境点云密度适中，可以不降采样
+      enable_downsampling: false
+      
+      # 降采样体素大小 [m]
+      downsample_voxel_size: 0.5
+      
+      # 地图发布频率 [Hz]
+      publish_rate: 0.1
+    
+    # 部分地图加载参数（动态加载）
+    partial_map:
+      # 是否启用部分加载
+      enable: false
+      
+      # 加载半径 [m]
+      # 以车辆为中心加载地图的半径
+      loading_radius: 50.0
+      
+      # 更新距离 [m]
+      # 车辆移动超过此距离时更新地图
+      update_distance: 10.0
+      
+      # 更新频率 [Hz]
+      update_rate: 1.0
+      
+      # 地图网格尺寸 [m]
+      grid_size: 20.0
+    
+    # 点云过滤
+    pointcloud_filtering:
+      # 高度过滤
+      height_filter:
+        # 是否启用
+        enable: true
+        
+        # 最小高度 [m]
+        # 相对于地面
+        min_height: -0.5
+        
+        # 最大高度 [m]
+        # 室内环境高度有限
+        max_height: 3.0
+      
+      # 距离过滤
+      distance_filter:
+        # 是否启用
+        enable: false
+        
+        # 最小距离 [m]
+        min_distance: 0.0
+        
+        # 最大距离 [m]
+        max_distance: 100.0
+      
+      # 统计离群值移除
+      statistical_outlier_removal:
+        # 是否启用
+        enable: true
+        
+        # 邻近点数量
+        mean_k: 50
+        
+        # 标准差倍数阈值
+        stddev_mul_thresh: 1.0
+    
+    # 地图坐标系
+    coordinate_frame:
+      # 地图坐标系ID
+      map_frame: "map"
+      
+      # 是否使用TF变换
+      use_tf_transform: false
+      
+      # 静态变换 [x, y, z, roll, pitch, yaw]
+      static_transform: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    
+    # 地图元数据
+    metadata:
+      # 地图分辨率 [m]
+      # 用于显示和处理
+      map_resolution: 0.5
+      
+      # 地图来源
+      map_source: "indoor_mapping"
+      
+      # 地图创建日期
+      creation_date: "2025-10-21"
+    
+    # 性能优化
+    performance:
+      # 是否使用多线程加载
+      use_multithreading: true
+      
+      # 线程数量
+      num_threads: 4
+      
+      # 内存限制 [MB]
+      # 0表示无限制
+      memory_limit: 0
+      
+      # 是否启用缓存
+      enable_caching: true
+    
+    # 调试参数
+    debug:
+      # 发布地图可视化
+      publish_visualization: true
+      
+      # 打印地图统计信息
+      print_map_statistics: true
+      
+      # 打印加载时间
+      print_loading_time: true
+

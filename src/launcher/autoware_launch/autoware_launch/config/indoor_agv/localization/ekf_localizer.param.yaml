@@ -1,0 +1,141 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV EKF定位器参数配置
+    # ============================================
+    # 功能：融合IMU、车轮里程计和NDT定位结果
+    # 适用场景：室内环境，低速运行（0-2 m/s）
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    node:
+      # 调试信息显示
+      show_debug_info: false
+      
+      # 偏航角偏差估计
+      # 室内环境建议启用，可以补偿IMU漂移
+      enable_yaw_bias_estimation: true
+      
+      # 预测频率 [Hz]
+      # 室内AGV建议50Hz，保证低速时的定位精度
+      predict_frequency: 50.0
+      
+      # TF发布频率 [Hz]
+      # 与预测频率保持一致
+      tf_rate: 50.0
+      
+      # 扩展状态步数
+      # 用于偏航角偏差估计的历史状态数量
+      extend_state_step: 50
+
+    pose_measurement:
+      # 位姿测量参数（来自NDT定位）
+      
+      # 额外延迟 [s]
+      # 室内环境传感器延迟较小
+      pose_additional_delay: 0.0
+      
+      # 位姿测量不确定性时间 [s]
+      # 室内NDT匹配更准确，可以使用较小值
+      pose_measure_uncertainty_time: 0.01
+      
+      # 位姿平滑步数
+      # 室内环境较稳定，使用5步平滑
+      pose_smoothing_steps: 5
+      
+      # 位姿门限距离
+      # 马氏距离阈值，用于异常值检测
+      # 对应显著性水平 = 10^-10
+      pose_gate_dist: 49.5
+
+    twist_measurement:
+      # 速度测量参数（来自车轮里程计/IMU）
+      
+      # 额外延迟 [s]
+      twist_additional_delay: 0.0
+      
+      # 速度平滑步数
+      # 室内低速运行，使用2步轻平滑
+      twist_smoothing_steps: 2
+      
+      # 速度门限距离
+      # 马氏距离阈值，用于异常值检测
+      twist_gate_dist: 46.1
+
+    process_noise:
+      # 过程噪声参数
+      # 用于状态预测的不确定性建模
+      
+      # 偏航角过程噪声标准差 [rad/s]
+      # 室内环境转弯较频繁，适当增加
+      proc_stddev_yaw_c: 0.005
+      
+      # 纵向速度过程噪声标准差 [m/s^2]
+      # 室内AGV加减速较频繁
+      proc_stddev_vx_c: 10.0
+      
+      # 偏航角速度过程噪声标准差 [rad/s^2]
+      # 室内转弯控制较稳定
+      proc_stddev_wz_c: 5.0
+
+    simple_1d_filter_parameters:
+      # 简单一维滤波器参数
+      # 用于平滑Z轴、横滚角、俯仰角
+      
+      # Z轴过程噪声 [m]
+      # 室内地面平坦，使用较小值
+      z_filter_proc_dev: 3.0
+      
+      # 横滚角过程噪声 [rad]
+      # 室内地面平整，使用较小值
+      roll_filter_proc_dev: 0.05
+      
+      # 俯仰角过程噪声 [rad]
+      # 室内地面平整，使用较小值
+      pitch_filter_proc_dev: 0.05
+
+    diagnostics:
+      # 诊断参数
+      # 用于监控定位系统健康状态
+      
+      # 位姿无更新计数阈值（警告） [次]
+      # 室内环境NDT匹配频率较高，设置较小值
+      pose_no_update_count_threshold_warn: 30
+      
+      # 位姿无更新计数阈值（错误） [次]
+      pose_no_update_count_threshold_error: 60
+      
+      # 速度无更新计数阈值（警告） [次]
+      twist_no_update_count_threshold_warn: 30
+      
+      # 速度无更新计数阈值（错误） [次]
+      twist_no_update_count_threshold_error: 60
+      
+      # 误差椭圆缩放因子
+      # 用于可视化定位不确定性
+      ellipse_scale: 3.0
+      
+      # 错误级别椭圆尺寸 [m]
+      # 室内定位精度要求高，设置较小阈值
+      error_ellipse_size: 0.5
+      
+      # 警告级别椭圆尺寸 [m]
+      warn_ellipse_size: 0.3
+      
+      # 错误级别椭圆尺寸（横向） [m]
+      error_ellipse_size_lateral_direction: 0.2
+      
+      # 警告级别椭圆尺寸（横向） [m]
+      warn_ellipse_size_lateral_direction: 0.15
+
+    misc:
+      # 其他参数
+      
+      # 可观测速度阈值 [m/s]
+      # 低于此速度时，某些测量可能不可靠
+      # 室内AGV低速运行，设为0表示不忽略任何速度
+      threshold_observable_velocity_mps: 0.0
+      
+      # 位姿坐标系ID
+      pose_frame_id: "map"
+

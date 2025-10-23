@@ -1,0 +1,119 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV地面分割参数配置
+    # ============================================
+    # 功能：从点云中分离地面和障碍物
+    # 适用场景：室内平坦地面环境
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 输入点云坐标系
+    input_frame: "base_link"
+    
+    # 输出点云坐标系
+    output_frame: "base_link"
+
+    # 地面分割算法参数
+    ground_segmentation:
+      # 算法类型
+      # - "ransac": RANSAC平面拟合
+      # - "ray_ground_filter": 射线地面滤波
+      # - "scan_ground_filter": 扫描线地面滤波
+      # 室内平坦地面推荐使用RANSAC
+      algorithm_type: "ransac"
+      
+      # RANSAC参数
+      ransac:
+        # 最大迭代次数
+        # 室内地面较平整，可以使用较少迭代
+        max_iterations: 100
+        
+        # 距离阈值 [m]
+        # 点到平面的最大距离，小于此距离认为是地面点
+        # 室内地面平整，使用较小阈值
+        distance_threshold: 0.05
+        
+        # 优化系数阈值
+        # 用于判断拟合质量
+        optimize_coefficients: true
+        
+        # 概率阈值
+        # RANSAC的成功概率
+        probability: 0.99
+        
+        # 每次采样的点数
+        # 平面拟合至少需要3个点
+        model_type: 3
+      
+      # 地面高度范围 [m]
+      # 相对于base_link的地面高度范围
+      ground_height_range:
+        # 最小高度（地面以下）
+        min: -0.5
+        # 最大高度（地面以上）
+        max: 0.1
+      
+      # 地面点最小数量
+      # 少于此数量的点簇不被视为有效地面
+      min_ground_points: 100
+
+    # 障碍物聚类参数
+    obstacle_clustering:
+      # 是否启用障碍物聚类
+      enable: true
+      
+      # 聚类距离阈值 [m]
+      # 室内环境障碍物较密集，使用较小阈值
+      cluster_tolerance: 0.2
+      
+      # 最小聚类大小
+      # 少于此数量点的聚类将被忽略（噪声）
+      min_cluster_size: 10
+      
+      # 最大聚类大小
+      # 超过此数量点的聚类将被分割
+      max_cluster_size: 25000
+
+    # 点云滤波参数
+    pointcloud_filter:
+      # 体素网格滤波
+      voxel_grid_filter:
+        # 是否启用
+        enable: false
+        
+        # 体素尺寸 [m]
+        leaf_size: 0.05
+      
+      # 统计离群值移除
+      statistical_outlier_removal:
+        # 是否启用
+        # 室内环境噪声较少，可以关闭以提高性能
+        enable: false
+        
+        # 邻近点数量
+        mean_k: 50
+        
+        # 标准差倍数阈值
+        stddev_mul_thresh: 1.0
+
+    # 发布配置
+    publish:
+      # 是否发布地面点云
+      ground_points: true
+      
+      # 是否发布障碍物点云
+      obstacle_points: true
+      
+      # 是否发布聚类结果
+      clusters: true
+
+    # 性能参数
+    performance:
+      # 处理频率 [Hz]
+      # 室内环境建议10-20Hz
+      processing_frequency: 15.0
+      
+      # 最大处理时间 [ms]
+      max_processing_time: 50.0
+

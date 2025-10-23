@@ -1,0 +1,256 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV横向控制器参数配置
+    # ============================================
+    # 功能：路径跟踪的横向控制（转向控制）
+    # 控制器类型：Pure Pursuit（纯跟踪）
+    # 适用场景：室内低速精确转向
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 控制器类型选择
+    # - "pure_pursuit": 纯跟踪控制器（推荐用于低速）
+    # - "mpc": 模型预测控制器（适合高速）
+    # 室内AGV低速运行，推荐使用Pure Pursuit
+    controller_type: "pure_pursuit"
+    
+    # ========== Pure Pursuit 参数 ==========
+    pure_pursuit:
+      # 基础前瞻距离 [m]
+      # 室内环境转弯较多，使用较小前瞻距离
+      base_lookahead_distance: 2.0
+      
+      # 最小前瞻距离 [m]
+      # 低速时的最小前瞻距离
+      min_lookahead_distance: 1.0
+      
+      # 最大前瞻距离 [m]
+      # 高速时的最大前瞻距离
+      max_lookahead_distance: 5.0
+      
+      # 速度比例前瞻距离
+      # 前瞻距离 = base + 速度 × 系数
+      # 室内环境速度低，系数可以适中
+      velocity_lookahead_ratio: 1.5
+      
+      # 曲率比例前瞻距离
+      # 转弯时缩短前瞻距离
+      curvature_lookahead_ratio: 0.5
+      
+      # 最小转弯半径 [m]
+      # 室内AGV的最小转弯能力
+      min_turning_radius: 0.5
+      
+      # 最大转向角 [rad]
+      # 根据AGV机械限制设置
+      # 通常为 ±30度 = ±0.524 rad
+      max_steering_angle: 0.524
+      
+      # 转向角速度限制 [rad/s]
+      # 限制转向角变化率，提高平稳性
+      max_steering_angle_rate: 0.5
+      
+      # 横向误差增益
+      # 用于调整对横向偏差的响应强度
+      lateral_error_gain: 1.0
+      
+      # 航向误差增益
+      # 用于调整对航向偏差的响应强度
+      heading_error_gain: 0.5
+      
+      # 前馈控制
+      enable_feedforward: true
+      
+      # 前馈增益
+      feedforward_gain: 0.8
+      
+      # 路径平滑
+      enable_path_smoothing: true
+      
+      # 平滑窗口大小
+      path_smoothing_window: 5
+    
+    # ========== MPC 参数 ==========
+    # 模型预测控制器参数（如果选择使用MPC）
+    mpc:
+      # 预测时域 [s]
+      prediction_horizon: 1.5
+      
+      # 控制时域 [s]
+      control_horizon: 0.5
+      
+      # 离散化时间步长 [s]
+      discretization_time_step: 0.1
+      
+      # 权重矩阵
+      weights:
+        # 横向误差权重
+        lateral_error: 1.0
+        
+        # 航向误差权重
+        heading_error: 0.5
+        
+        # 转向角权重
+        steering_angle: 0.1
+        
+        # 转向角变化率权重
+        steering_angle_rate: 0.05
+      
+      # 约束
+      constraints:
+        # 最大转向角 [rad]
+        max_steering_angle: 0.524
+        
+        # 最大转向角速度 [rad/s]
+        max_steering_angle_rate: 0.5
+      
+      # 求解器参数
+      solver:
+        # 最大迭代次数
+        max_iterations: 50
+        
+        # 收敛阈值
+        convergence_threshold: 0.01
+    
+    # ========== 通用参数 ==========
+    
+    # 车辆参数
+    vehicle:
+      # 轴距 [m]
+      # 前轴到后轴的距离
+      wheelbase: 1.0
+      
+      # 车辆宽度 [m]
+      width: 0.6
+      
+      # 车辆长度 [m]
+      length: 1.2
+      
+      # 转向比
+      # 方向盘转角 / 前轮转角
+      steering_ratio: 15.0
+      
+      # 最大转向角 [rad]
+      max_steer_angle: 0.524
+    
+    # 路径跟踪误差限制
+    tracking_error_limits:
+      # 最大横向误差 [m]
+      # 超过此误差将触发警告
+      max_lateral_error: 1.0
+      
+      # 最大航向误差 [rad]
+      # 超过此误差将触发警告
+      max_heading_error: 0.5
+      
+      # 误差警告阈值 [m]
+      error_warning_threshold: 0.5
+      
+      # 误差错误阈值 [m]
+      error_error_threshold: 0.8
+    
+    # 低速行为
+    low_speed_behavior:
+      # 低速阈值 [m/s]
+      # 低于此速度采用特殊控制策略
+      low_speed_threshold: 0.3
+      
+      # 低速时的前瞻距离 [m]
+      low_speed_lookahead: 1.0
+      
+      # 低速时的控制增益
+      low_speed_gain: 1.2
+      
+      # 停止时的转向行为
+      # - "maintain": 保持当前转向角
+      # - "zero": 回正转向角
+      stop_steering_behavior: "maintain"
+    
+    # 曲率前馈补偿
+    curvature_feedforward:
+      # 是否启用
+      enable: true
+      
+      # 前馈增益
+      gain: 0.8
+      
+      # 曲率计算窗口 [m]
+      calculation_window: 3.0
+      
+      # 曲率平滑窗口
+      smoothing_window: 5
+    
+    # 侧滑补偿
+    sideslip_compensation:
+      # 是否启用
+      # 室内低速运行，侧滑较小，可以禁用
+      enable: false
+      
+      # 侧滑角估计方法
+      # - "kinematic": 运动学模型
+      # - "dynamic": 动力学模型
+      estimation_method: "kinematic"
+      
+      # 补偿增益
+      compensation_gain: 0.5
+    
+    # 转向延迟补偿
+    steering_delay_compensation:
+      # 是否启用
+      enable: true
+      
+      # 转向系统延迟 [s]
+      # 从命令发出到执行的延迟
+      steering_delay: 0.05
+      
+      # 补偿方法
+      # - "prediction": 预测补偿
+      # - "feedforward": 前馈补偿
+      compensation_method: "prediction"
+    
+    # 抗扰动
+    disturbance_rejection:
+      # 是否启用
+      enable: true
+      
+      # 积分控制
+      enable_integral: true
+      
+      # 积分增益
+      integral_gain: 0.1
+      
+      # 积分饱和限制
+      integral_saturation_limit: 0.2
+      
+      # 抗饱和
+      enable_anti_windup: true
+    
+    # 安全限制
+    safety_limits:
+      # 最大横向加速度 [m/s²]
+      max_lateral_acceleration: 0.5
+      
+      # 最大横向急动度 [m/s³]
+      max_lateral_jerk: 0.3
+      
+      # 转向角限制使能
+      enable_steering_limit: true
+      
+      # 转向角速度限制使能
+      enable_steering_rate_limit: true
+    
+    # 调试参数
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布预瞄点
+      publish_lookahead_point: true
+      
+      # 发布跟踪误差
+      publish_tracking_error: true
+      
+      # 打印控制状态
+      print_control_status: false
+

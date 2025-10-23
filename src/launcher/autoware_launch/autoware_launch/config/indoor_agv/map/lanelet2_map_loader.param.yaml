@@ -1,0 +1,123 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV Lanelet2地图加载器参数配置
+    # ============================================
+    # 功能：加载和处理Lanelet2格式的室内地图
+    # 适用场景：室内路网地图
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 地图中心点投影类型
+    # - "utm": UTM投影（室外）
+    # - "local": 本地坐标系（室内推荐）
+    projection_type: "local"
+    
+    # 本地坐标系原点 [纬度, 经度]
+    # 室内环境可以使用任意参考点
+    local_origin: [0.0, 0.0]
+    
+    # 地图加载参数
+    map_loading:
+      # 是否启用地图验证
+      enable_validation: true
+      
+      # 验证严格级别
+      # - "strict": 严格验证
+      # - "normal": 普通验证
+      # - "loose": 宽松验证
+      validation_level: "normal"
+      
+      # 是否修复地图错误
+      auto_fix_errors: true
+    
+    # 车道参数
+    lane:
+      # 默认车道宽度 [m]
+      # 室内通道宽度通常较小
+      default_lane_width: 1.5
+      
+      # 最小车道宽度 [m]
+      min_lane_width: 0.8
+      
+      # 最大车道宽度 [m]
+      max_lane_width: 3.0
+    
+    # 速度限制
+    speed_limit:
+      # 默认速度限制 [m/s]
+      # 室内环境默认低速
+      default_speed_limit: 1.0
+      
+      # 是否使用地图中的速度限制
+      use_map_speed_limit: true
+      
+      # 速度限制缓冲 [m/s]
+      # 实际速度 = 地图限速 - 缓冲
+      speed_limit_buffer: 0.1
+    
+    # 交通规则
+    traffic_rules:
+      # 是否启用交通规则
+      # 室内环境可能有特殊规则
+      enable_traffic_rules: true
+      
+      # 默认行驶方向
+      # - "right": 靠右行驶
+      # - "left": 靠左行驶
+      default_traffic_direction: "right"
+      
+      # 是否允许变道
+      allow_lane_change: true
+      
+      # 是否允许倒车
+      allow_reverse: true
+    
+    # 地图元素过滤
+    element_filtering:
+      # 加载的元素类型
+      load_elements:
+        # 车道
+        lanelets: true
+        
+        # 区域
+        areas: true
+        
+        # 停止线
+        stop_lines: true
+        
+        # 交叉路口
+        intersections: true
+        
+        # 人行横道
+        crosswalks: false  # 室内可能不需要
+        
+        # 交通信号灯
+        traffic_lights: false  # 室内通常不需要
+        
+        # 停车区域
+        parking_areas: true
+        
+        # 禁行区域
+        no_go_areas: true
+    
+    # 地图扩展
+    map_extension:
+      # 是否启用地图扩展
+      # 用于动态禁行区域等
+      enable_extension: true
+      
+      # 扩展更新频率 [Hz]
+      extension_update_rate: 1.0
+    
+    # 调试参数
+    debug:
+      # 发布地图可视化
+      publish_visualization: true
+      
+      # 发布地图元素标记
+      publish_markers: true
+      
+      # 打印地图统计信息
+      print_map_statistics: true
+

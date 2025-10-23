@@ -1,0 +1,171 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV行为路径规划器参数配置
+    # ============================================
+    # 功能：局部路径规划和行为决策
+    # 适用场景：室内环境避障和路径跟随
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 交通信号灯超时 [s]
+    # 室内环境通常无交通信号灯，设置较大值或禁用
+    traffic_light_signal_timeout: 10.0
+    
+    # 规划频率 [Hz]
+    # 室内AGV建议10-20Hz，平衡实时性和计算量
+    planning_hz: 10.0
+    
+    # 向后路径长度 [m]
+    # 车辆后方保留的路径长度
+    # 室内环境设置较小值
+    backward_path_length: 3.0
+    
+    # 向前路径长度 [m]
+    # 车辆前方规划的路径长度
+    # 室内环境范围较小，设置适中值
+    forward_path_length: 50.0
+    
+    # 靠边停车结束缓冲长度 [m]
+    backward_length_buffer_for_end_of_pull_over: 3.0
+    
+    # 启动结束缓冲长度 [m]
+    backward_length_buffer_for_end_of_pull_out: 3.0
+    
+    # 最小靠边停车长度 [m]
+    # 室内环境空间有限，设置较小值
+    minimum_pull_over_length: 5.0
+    
+    # 目标点搜索半径范围 [m]
+    # 精确化目标点位置的搜索范围
+    refine_goal_search_radius_range: 5.0
+    
+    # 转向信号决策参数
+    turn_signal_intersection_search_distance: 20.0
+    turn_signal_intersection_angle_threshold_deg: 15.0
+    turn_signal_minimum_search_distance: 5.0
+    turn_signal_search_time: 2.0
+    turn_signal_shift_length_threshold: 0.2
+    turn_signal_remaining_shift_length_threshold: 0.1
+    turn_signal_on_swerving: true
+    
+    # 路径平滑参数
+    
+    # 是否优先使用Akima样条
+    # Akima样条更适合室内环境的平滑转弯
+    enable_akima_spline_first: true
+    
+    # 是否将重心置于中心线
+    # 室内通道较窄，建议启用
+    enable_cog_on_centerline: true
+    
+    # 输入路径间隔 [m]
+    # 输入路径点的采样间隔
+    # 室内环境使用较小值提高精度
+    input_path_interval: 1.0
+    
+    # 输出路径间隔 [m]
+    # 输出路径点的采样间隔
+    output_path_interval: 1.0
+    
+    # 避障参数
+    avoidance:
+      # 是否启用避障
+      enable: true
+      
+      # 避障策略
+      # - "static": 仅避静态障碍物
+      # - "dynamic": 避静态和动态障碍物
+      strategy: "dynamic"
+      
+      # 横向避障距离 [m]
+      # 室内环境通道宽度有限，使用较小值
+      lateral_avoidance_distance: 0.5
+      
+      # 纵向避障距离 [m]
+      # 前方障碍物保持的安全距离
+      longitudinal_avoidance_distance: 1.0
+      
+      # 避障速度限制 [m/s]
+      # 避障时的最大速度
+      avoidance_speed_limit: 0.8
+      
+      # 最小避障间隙 [m]
+      # 可通过的最小间隙宽度
+      # 根据AGV宽度设置
+      min_avoidance_gap: 0.8
+    
+    # 车道保持参数
+    lane_keeping:
+      # 是否启用车道保持
+      enable: true
+      
+      # 车道偏离阈值 [m]
+      # 超过此距离触发车道保持行为
+      lane_departure_threshold: 0.3
+      
+      # 车道保持刚度
+      # 值越大，车道保持越强
+      lane_keeping_stiffness: 1.0
+    
+    # 速度规划参数
+    velocity_planning:
+      # 最大速度 [m/s]
+      # 室内AGV最大运行速度
+      max_velocity: 1.5
+      
+      # 最小速度 [m/s]
+      # 低于此速度可能导致控制不稳定
+      min_velocity: 0.1
+      
+      # 最大加速度 [m/s²]
+      max_acceleration: 0.5
+      
+      # 最大减速度 [m/s²]
+      max_deceleration: 0.8
+      
+      # 最大横向加速度 [m/s²]
+      # 室内环境转弯较多，设置适中值
+      max_lateral_acceleration: 0.5
+    
+    # 安全参数
+    safety:
+      # 安全时间间隔 [s]
+      # 与前方障碍物保持的安全时间
+      safety_time_headway: 2.0
+      
+      # 紧急停止距离 [m]
+      # 紧急情况下的最小停止距离
+      emergency_stop_distance: 0.5
+      
+      # 碰撞检查频率 [Hz]
+      collision_check_frequency: 20.0
+    
+    # 路径优化参数
+    path_optimization:
+      # 是否启用路径优化
+      enable: true
+      
+      # 优化目标
+      # - "length": 最短路径
+      # - "smoothness": 最平滑路径
+      # - "safety": 最安全路径（与障碍物距离最大）
+      optimization_objective: "smoothness"
+      
+      # 优化迭代次数
+      max_iterations: 50
+      
+      # 优化收敛阈值
+      convergence_threshold: 0.01
+    
+    # 调试参数
+    debug:
+      # 发布调试路径
+      publish_debug_path: false
+      
+      # 发布避障边界
+      publish_avoidance_boundary: false
+      
+      # 打印规划时间
+      print_planning_time: false
+

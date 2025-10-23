@@ -1,0 +1,316 @@
+/**:
+  ros__parameters:
+    # ============================================
+    # 室内AGV车辆命令门参数配置
+    # ============================================
+    # 功能：车辆控制命令的安全门控和仲裁
+    # 适用场景：室内安全运行
+    # 更新日期：2025-10-21
+    # ============================================
+    
+    # 更新频率 [Hz]
+    update_rate: 30.0
+    
+    # ========== 命令源优先级 ==========
+    command_sources:
+      # 命令源优先级（从高到低）
+      # - "emergency": 紧急停止
+      # - "external": 外部控制（如遥控器）
+      # - "auto": 自动驾驶
+      priority_order: ["emergency", "external", "auto"]
+      
+      # 各命令源超时时间 [s]
+      timeouts:
+        emergency: 0.5
+        external: 1.0
+        auto: 1.0
+      
+      # 超时后的行为
+      # - "stop": 停止
+      # - "switch": 切换到下一优先级
+      timeout_behavior: "stop"
+    
+    # ========== 命令限制 ==========
+    command_limits:
+      # 速度限制
+      velocity:
+        # 最大速度 [m/s]
+        max: 1.5
+        
+        # 最小速度 [m/s]
+        min: -0.5  # 负值表示倒车
+        
+        # 速度变化率限制 [m/s²]
+        max_rate: 0.8
+      
+      # 转向角限制
+      steering:
+        # 最大转向角 [rad]
+        max: 0.524  # 约30度
+        
+        # 最小转向角 [rad]
+        min: -0.524
+        
+        # 转向角变化率限制 [rad/s]
+        max_rate: 0.5
+      
+      # 加速度限制
+      acceleration:
+        # 最大加速度 [m/s²]
+        max: 0.5
+        
+        # 最大减速度 [m/s²]
+        max_decel: 0.8
+    
+    # ========== 安全检查 ==========
+    safety_checks:
+      # 是否启用安全检查
+      enable: true
+      
+      # 速度一致性检查
+      velocity_consistency:
+        # 是否启用
+        enable: true
+        
+        # 容差 [m/s]
+        tolerance: 0.3
+        
+        # 检查窗口大小
+        window_size: 5
+      
+      # 转向角一致性检查
+      steering_consistency:
+        # 是否启用
+        enable: true
+        
+        # 容差 [rad]
+        tolerance: 0.1
+        
+        # 检查窗口大小
+        window_size: 5
+      
+      # 命令跳变检查
+      command_jump_check:
+        # 是否启用
+        enable: true
+        
+        # 速度跳变阈值 [m/s]
+        velocity_jump_threshold: 0.5
+        
+        # 转向角跳变阈值 [rad]
+        steering_jump_threshold: 0.2
+      
+      # 车辆状态检查
+      vehicle_state_check:
+        # 是否启用
+        enable: true
+        
+        # 检查项目
+        check_items:
+          # 检查紧急停止状态
+          emergency_stop: true
+          
+          # 检查系统故障
+          system_fault: true
+          
+          # 检查定位状态
+          localization_status: true
+          
+          # 检查传感器状态
+          sensor_status: true
+    
+    # ========== 紧急停止 ==========
+    emergency_stop:
+      # 紧急停止触发条件
+      triggers:
+        # 外部紧急按钮
+        external_button: true
+        
+        # 安全检查失败
+        safety_check_failure: true
+        
+        # 系统故障
+        system_fault: true
+        
+        # 碰撞检测
+        collision_detection: true
+        
+        # 命令超时
+        command_timeout: true
+      
+      # 紧急停止减速度 [m/s²]
+      emergency_decel: 1.5
+      
+      # 紧急停止后的恢复
+      recovery:
+        # 是否允许自动恢复
+        allow_auto_recovery: false
+        
+        # 恢复前的等待时间 [s]
+        recovery_wait_time: 3.0
+        
+        # 恢复条件
+        recovery_conditions:
+          # 需要手动确认
+          require_manual_confirmation: true
+          
+          # 需要清除故障
+          require_fault_clear: true
+    
+    # ========== 模式切换 ==========
+    mode_switching:
+      # 是否启用模式切换
+      enable: true
+      
+      # 切换延迟 [s]
+      # 切换模式前的等待时间
+      switching_delay: 0.5
+      
+      # 切换时的速度处理
+      # - "maintain": 保持当前速度
+      # - "stop": 停止
+      # - "smooth": 平滑过渡
+      velocity_handling: "smooth"
+      
+      # 平滑过渡时间 [s]
+      smooth_transition_time: 1.0
+      
+      # 允许的模式切换
+      allowed_transitions:
+        # 自动到手动
+        auto_to_manual: true
+        
+        # 手动到自动
+        manual_to_auto: true
+        
+        # 任意模式到紧急
+        any_to_emergency: true
+    
+    # ========== 命令滤波 ==========
+    command_filtering:
+      # 是否启用命令滤波
+      enable: true
+      
+      # 速度命令滤波
+      velocity_filter:
+        # 滤波器类型
+        # - "low_pass": 低通滤波
+        # - "moving_average": 移动平均
+        type: "low_pass"
+        
+        # 截止频率 [Hz]
+        cutoff_frequency: 5.0
+        
+        # 移动平均窗口大小
+        window_size: 5
+      
+      # 转向命令滤波
+      steering_filter:
+        # 滤波器类型
+        type: "low_pass"
+        
+        # 截止频率 [Hz]
+        cutoff_frequency: 3.0
+        
+        # 移动平均窗口大小
+        window_size: 3
+    
+    # ========== 命令仲裁 ==========
+    command_arbitration:
+      # 仲裁策略
+      # - "priority": 基于优先级
+      # - "weighted": 加权平均
+      # - "voting": 投票决策
+      strategy: "priority"
+      
+      # 加权平均权重（如果使用weighted策略）
+      weights:
+        emergency: 1.0
+        external: 0.8
+        auto: 0.6
+      
+      # 投票阈值（如果使用voting策略）
+      voting_threshold: 0.6
+    
+    # ========== 车辆状态监控 ==========
+    vehicle_state_monitoring:
+      # 是否启用
+      enable: true
+      
+      # 监控项目
+      monitor_items:
+        # 监控速度
+        velocity: true
+        
+        # 监控转向角
+        steering_angle: true
+        
+        # 监控加速度
+        acceleration: true
+        
+        # 监控位置
+        position: true
+        
+        # 监控航向
+        heading: true
+      
+      # 监控频率 [Hz]
+      monitoring_frequency: 30.0
+      
+      # 异常检测
+      anomaly_detection:
+        # 是否启用
+        enable: true
+        
+        # 速度异常阈值 [m/s]
+        velocity_anomaly_threshold: 0.5
+        
+        # 转向角异常阈值 [rad]
+        steering_anomaly_threshold: 0.3
+    
+    # ========== 诊断和日志 ==========
+    diagnostics:
+      # 是否启用诊断
+      enable: true
+      
+      # 诊断频率 [Hz]
+      diagnostics_frequency: 1.0
+      
+      # 诊断级别
+      # - "ok": 正常
+      # - "warn": 警告
+      # - "error": 错误
+      # - "stale": 数据过时
+      
+      # 命令延迟警告阈值 [ms]
+      command_delay_warning_threshold: 50.0
+      
+      # 命令延迟错误阈值 [ms]
+      command_delay_error_threshold: 100.0
+      
+      # 日志记录
+      logging:
+        # 是否启用日志
+        enable: false
+        
+        # 日志级别
+        # - "debug", "info", "warn", "error"
+        log_level: "info"
+        
+        # 日志文件路径
+        log_file_path: "/tmp/vehicle_cmd_gate.log"
+    
+    # ========== 调试参数 ==========
+    debug:
+      # 发布调试信息
+      publish_debug_info: false
+      
+      # 发布命令源状态
+      publish_command_source_status: true
+      
+      # 发布安全检查结果
+      publish_safety_check_results: true
+      
+      # 打印命令信息
+      print_command_info: false
+
