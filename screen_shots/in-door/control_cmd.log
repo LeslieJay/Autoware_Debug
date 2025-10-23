@@ -1,0 +1,32 @@
+A message was lost!!!
+	total count change:1
+	total count: 1---
+stamp:
+  sec: 1761200373
+  nanosec: 246481160
+control_time:
+  sec: 0
+  nanosec: 0
+lateral:
+  stamp:
+    sec: 1761200373
+    nanosec: 253365869
+  control_time:
+    sec: 0
+    nanosec: 0
+  steering_tire_angle: 0.019999999552965164
+  steering_tire_rotation_rate: 0.0
+  is_defined_steering_tire_rotation_rate: false
+longitudinal:
+  stamp:
+    sec: 1761200373
+    nanosec: 253365869
+  control_time:
+    sec: 0
+    nanosec: 0
+  velocity: 0.0
+  acceleration: -1.5
+  jerk: 0.0
+  is_defined_acceleration: false
+  is_defined_jerk: false
+---

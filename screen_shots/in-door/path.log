@@ -1,0 +1,185 @@
+header:
+  stamp:
+    sec: 1761200277
+    nanosec: 357730244
+  frame_id: map
+points:
+- pose:
+    position:
+      x: -0.3833986796594337
+      y: -1.006162596811777
+      z: -2.008963388233446
+    orientation:
+      x: 0.00026432428818134643
+      y: -0.0006589888364007764
+      z: 0.37227522364318566
+      w: 0.9281221114313569
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 0.33976380029923
+      y: -0.314803177068815
+      z: -2.0103841052101292
+    orientation:
+      x: 0.00025828331506685015
+      y: -0.0006619816559357784
+      z: 0.36348011934547675
+      w: 0.9316016841497305
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 1.07529374849166
+      y: 0.3622188628598606
+      z: -2.0118048221868126
+    orientation:
+      x: 0.00024822095476675416
+      y: -0.0006662133470936453
+      z: 0.34913836242770263
+      w: 0.9370709143002124
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 1.1044810647928518
+      y: 0.38747430901204893
+      z: -2.0118597036760306
+    orientation:
+      x: 0.0002480939908222031
+      y: -0.0006867730407082027
+      z: 0.33975657275413007
+      w: 0.9405131248752087
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 1.8415311710894988
+      y: 0.9999089589250807
+      z: -2.0132592117372856
+    orientation:
+      x: 0.00023188758501383342
+      y: -0.0006874973069876059
+      z: 0.3196019189700115
+      w: 0.9475516275994079
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 2.6397841972142624
+      y: 1.607524289301312
+      z: -2.0147149543064877
+    orientation:
+      x: 0.0002213277746463151
+      y: -0.0006837799268861589
+      z: 0.3079522754423828
+      w: 0.9514015343212804
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 2.662934112704029
+      y: 1.6242646420524702
+      z: -2.014756019118616
+    orientation:
+      x: 0.000175353640322792
+      y: -0.000729147136869409
+      z: 0.23382464912017545
+      w: 0.972278494598837
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 3.020506224817721
+      y: 1.8068083217709086
+      z: -2.015358176929961
+    orientation:
+      x: 7.72406142936118e-05
+      y: -0.0008376622283668623
+      z: 0.09182017450512174
+      w: 0.9957752496973038
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 3.578862303309835
+      y: 1.9106630960787052
+      z: -2.0163136855957835
+    orientation:
+      x: 4.86659452344768e-05
+      y: -0.0008305883713536578
+      z: 0.05849179755435562
+      w: 0.9982875424312594
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+- pose:
+    position:
+      x: 4.008518218994141
+      y: 1.9611854553222656
+      z: -2.01703357071723
+    orientation:
+      x: 4.86659452344768e-05
+      y: -0.0008305883713536578
+      z: 0.05849179755435562
+      w: 0.9982875424312594
+  longitudinal_velocity_mps: 0.0
+  lateral_velocity_mps: 0.0
+  heading_rate_rps: 0.0
+  is_final: false
+left_bound:
+- x: -0.9134700265196013
+  y: 5.234316886352209
+  z: -2.390958990287492
+- x: -0.3358
+  y: 5.2371
+  z: -2.3842
+- x: 1.7506
+  y: 5.2577
+  z: -2.361
+- x: 3.7888
+  y: 5.314
+  z: -2.308
+- x: 4.9602
+  y: 5.3081
+  z: -2.2816
+right_bound:
+- x: -0.8748742167550236
+  y: -2.765601724224195
+  z: -2.390943973353815
+- x: -0.297
+  y: -2.7628
+  z: -2.3842
+- x: 1.8295
+  y: -2.7419
+  z: -2.361
+- x: 4.0074
+  y: -2.683
+  z: -2.308
+- x: 4.9039
+  y: -2.6917
+  z: -2.2816
+- x: 6.7342
+  y: -2.6953
+  z: -2.2871
+- x: 9.013209794733509
+  y: -2.4730061758852413
+  z: -2.213286685803977
+---

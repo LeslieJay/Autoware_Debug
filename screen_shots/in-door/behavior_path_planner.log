@@ -1,0 +1,74 @@
+/planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner
+  Subscribers:
+    /localization/acceleration: geometry_msgs/msg/AccelWithCovarianceStamped
+    /localization/kinematic_state: nav_msgs/msg/Odometry
+    /map/vector_map: autoware_map_msgs/msg/LaneletMapBin
+    /parameter_events: rcl_interfaces/msg/ParameterEvent
+    /perception/object_recognition/objects: autoware_perception_msgs/msg/PredictedObjects
+    /perception/occupancy_grid_map/map: nav_msgs/msg/OccupancyGrid
+    /perception/traffic_light_recognition/traffic_signals: autoware_perception_msgs/msg/TrafficLightGroupArray
+    /planning/mission_planning/route: autoware_planning_msgs/msg/LaneletRoute
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/input/lateral_offset: tier4_planning_msgs/msg/LateralOffset
+    /planning/scenario_planning/max_velocity: autoware_internal_planning_msgs/msg/VelocityLimit
+    /planning/scenario_planning/parking/costmap_generator/occupancy_grid: nav_msgs/msg/OccupancyGrid
+    /planning/scenario_planning/scenario: autoware_internal_planning_msgs/msg/Scenario
+    /system/operation_mode/state: autoware_adapi_v1_msgs/msg/OperationModeState
+  Publishers:
+    /parameter_events: rcl_interfaces/msg/ParameterEvent
+    /planning/auto_mode_status/goal_planner: tier4_rtc_msgs/msg/AutoModeStatus
+    /planning/auto_mode_status/start_planner: tier4_rtc_msgs/msg/AutoModeStatus
+    /planning/cooperate_status/goal_planner: tier4_rtc_msgs/msg/CooperateStatusArray
+    /planning/cooperate_status/start_planner: tier4_rtc_msgs/msg/CooperateStatusArray
+    /planning/debug/objects_of_interest/goal_planner: visualization_msgs/msg/MarkerArray
+    /planning/debug/objects_of_interest/start_planner: visualization_msgs/msg/MarkerArray
+    /planning/hazard_lights_cmd: autoware_vehicle_msgs/msg/HazardLightsCommand
+    /planning/path_candidate/goal_planner: autoware_planning_msgs/msg/Path
+    /planning/path_candidate/start_planner: autoware_planning_msgs/msg/Path
+    /planning/path_reference/goal_planner: autoware_planning_msgs/msg/Path
+    /planning/path_reference/start_planner: autoware_planning_msgs/msg/Path
+    /planning/planning_factors/behavior_path_planner: autoware_internal_planning_msgs/msg/PlanningFactorArray
+    /planning/planning_factors/goal_planner: autoware_internal_planning_msgs/msg/PlanningFactorArray
+    /planning/planning_factors/start_planner: autoware_internal_planning_msgs/msg/PlanningFactorArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/avoidance_debug_message_array: tier4_planning_msgs/msg/AvoidanceDebugMsgArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/bound: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/goal_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/goal_planner/processing_time_ms: autoware_internal_debug_msgs/msg/Float64Stamped
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/internal_state: autoware_internal_debug_msgs/msg/StringStamped
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/root_reference_path: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/start_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/start_planner/processing_time_ms: autoware_internal_debug_msgs/msg/Float64Stamped
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/start_planner_evaluation_table/start_planner_evaluation_table: autoware_internal_debug_msgs/msg/StringStamped
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/total_time/processing_time_ms: autoware_internal_debug_msgs/msg/Float64Stamped
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/debug/turn_signal_info: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/drivable_lanes/goal_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/drivable_lanes/start_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/info/goal_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/info/start_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/output/is_reroute_available: tier4_planning_msgs/msg/RerouteAvailability
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/processing_time/goal_planner: autoware_internal_debug_msgs/msg/ProcessingTimeTree
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/processing_time/start_planner: autoware_internal_debug_msgs/msg/ProcessingTimeTree
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/virtual_wall/goal_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/virtual_wall/start_planner: visualization_msgs/msg/MarkerArray
+    /planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id: autoware_internal_planning_msgs/msg/PathWithLaneId
+    /planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id/debug/published_time: autoware_internal_msgs/msg/PublishedTime
+    /planning/scenario_planning/modified_goal: autoware_planning_msgs/msg/PoseWithUuidStamped
+    /planning/turn_indicators_cmd: autoware_vehicle_msgs/msg/TurnIndicatorsCommand
+    /rosout: rcl_interfaces/msg/Log
+  Service Servers:
+    /planning/cooperate_commands/goal_planner: tier4_rtc_msgs/srv/CooperateCommands
+    /planning/cooperate_commands/start_planner: tier4_rtc_msgs/srv/CooperateCommands
+    /planning/enable_auto_mode/goal_planner: tier4_rtc_msgs/srv/AutoMode
+    /planning/enable_auto_mode/start_planner: tier4_rtc_msgs/srv/AutoMode
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/config_logger: logging_demo/srv/ConfigLogger
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/describe_parameters: rcl_interfaces/srv/DescribeParameters
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/get_parameter_types: rcl_interfaces/srv/GetParameterTypes
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/get_parameters: rcl_interfaces/srv/GetParameters
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/list_parameters: rcl_interfaces/srv/ListParameters
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/set_parameters: rcl_interfaces/srv/SetParameters
+    /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/set_parameters_atomically: rcl_interfaces/srv/SetParametersAtomically
+  Service Clients:
+
+  Action Servers:
+
+  Action Clients:
+

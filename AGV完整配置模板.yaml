@@ -1,0 +1,853 @@
+# ============================================================================
+# 室内AGV专用Behavior Path Planner配置模板
+# ============================================================================
+# 说明：
+#   1. 此配置针对室内低速AGV优化（最大速度 < 2 m/s）
+#   2. 相比室外车辆配置，大幅缩短距离参数、降低速度
+#   3. 禁用了不必要的复杂场景模块
+#   4. 提高了定位精度要求
+#
+# 使用方法：
+#   将此文件内容分别复制到对应的参数文件中，或创建AGV专用的launch配置
+#
+# 目录结构：
+#   src/launcher/autoware_launch/autoware_launch/config/planning/
+#     └── scenario_planning/lane_driving/behavior_planning/
+#         ├── behavior_path_planner/
+#         │   ├── behavior_path_planner.param.yaml  # 主配置
+#         │   ├── scene_module_manager.param.yaml   # 模块管理
+#         │   └── modules/
+#         │       ├── goal_planner.param.yaml       # 目标规划器
+#         │       └── start_planner.param.yaml      # 起始规划器
+#         └── preset/
+#             └── default_preset.yaml                # 模块启用配置
+# ============================================================================
+
+# ============================================================================
+# 文件1: behavior_path_planner.param.yaml
+# ============================================================================
+---
+/**:
+  ros__parameters:
+    # ========================================
+    # 规划频率
+    # ========================================
+    planning_hz: 10.0
+    # 说明：保持10Hz，或根据计算资源调整为5Hz
+    
+    # ========================================
+    # 路径长度配置 - ⚠️ 关键调整
+    # ========================================
+    backward_path_length: 2.0
+    # 默认值：5.0 m
+    # AGV值：2.0 m
+    # 理由：室内空间小，不需要看很远的后方
+    
+    forward_path_length: 30.0
+    # 默认值：300.0 m
+    # AGV值：20.0-50.0 m（根据场地大小调整）
+    # 理由：室内环境有限，过长的路径浪费计算且可能包含无效区域
+    # 建议：
+    #   - 小房间/狭窄走廊：15-20 m
+    #   - 大仓库/开阔区域：30-50 m
+    
+    backward_length_buffer_for_end_of_pull_over: 2.0
+    # 默认值：5.0 m → AGV：2.0 m
+    
+    backward_length_buffer_for_end_of_pull_out: 2.0
+    # 默认值：5.0 m → AGV：2.0 m
+    
+    minimum_pull_over_length: 5.0
+    # 默认值：16.0 m
+    # AGV值：5.0 m
+    # 理由：AGV车身小，停车所需距离短
+    
+    # ========================================
+    # 目标点搜索
+    # ========================================
+    refine_goal_search_radius_range: 3.0
+    # 默认值：7.5 m
+    # AGV值：2.0-3.0 m
+    # 理由：AGV需要更精确的定位，搜索范围应较小
+    
+    # ========================================
+    # 转向灯配置（AGV可能不需要）
+    # ========================================
+    turn_signal_intersection_search_distance: 5.0
+    # 默认值：30.0 m → AGV：5.0 m
+    
+    turn_signal_intersection_angle_threshold_deg: 15.0
+    # 保持默认
+    
+    turn_signal_minimum_search_distance: 3.0
+    # 默认值：10.0 m → AGV：3.0 m
+    
+    turn_signal_search_time: 1.0
+    # 默认值：3.0 s → AGV：1.0 s（反应更快）
+    
+    turn_signal_shift_length_threshold: 0.1
+    # 默认值：0.3 m → AGV：0.1 m
+    
+    turn_signal_remaining_shift_length_threshold: 0.1
+    # 保持默认
+    
+    turn_signal_on_swerving: true
+    # 保持默认，或设为false（AGV通常不需要）
+    
+    # ========================================
+    # 路径样条和间隔
+    # ========================================
+    enable_akima_spline_first: false
+    # 保持默认
+    
+    enable_cog_on_centerline: false
+    # 保持默认
+    
+    input_path_interval: 0.5
+    # 默认值：2.0 m
+    # AGV值：0.5 m
+    # 理由：更密集的路径点，提供更平滑的轨迹
+    
+    output_path_interval: 0.5
+    # 默认值：2.0 m → AGV：0.5 m
+    
+    # ========================================
+    # 交通灯信号超时（AGV通常不适用）
+    # ========================================
+    traffic_light_signal_timeout: 1.0
+    # 保持默认，或设为更大值（AGV环境可能无交通灯）
+
+
+# ============================================================================
+# 文件2: goal_planner.param.yaml
+# ============================================================================
+---
+/**:
+  ros__parameters:
+    goal_planner:
+      
+      # ========================================
+      # 到达判断 - ⚠️ 关键精度参数
+      # ========================================
+      th_arrived_distance: 0.3
+      # 默认值：1.0 m
+      # AGV值：0.2-0.3 m
+      # 理由：AGV需要精确停靠，例如充电桩、货物装卸点
+      # 建议：根据实际定位精度设置，过小可能导致抖动
+      
+      th_stopped_velocity: 0.01
+      # 默认值：0.01 m/s（保持不变）
+      # 说明：判断车辆是否停止的速度阈值
+      
+      th_stopped_time: 1.0
+      # 默认值：2.0 s
+      # AGV值：1.0 s
+      # 理由：AGV需要快速响应，缩短停止确认时间
+      
+      center_line_path_interval: 0.5
+      # 默认值：1.0 m → AGV：0.5 m
+      
+      # ========================================
+      # 目标搜索策略
+      # ========================================
+      goal_search:
+        goal_priority: "minimum_weighted_distance"
+        # 选项："minimum_weighted_distance" 或 "minimum_longitudinal_distance"
+        # 推荐：minimum_weighted_distance（综合考虑纵向和横向距离）
+        
+        minimum_weighted_distance:
+          lateral_weight: 20.0
+          # 默认值：40.0
+          # AGV值：15.0-25.0
+          # 理由：室内走廊较窄，降低横向权重以增加可行解
+        
+        prioritize_goals_before_objects: true
+        # 保持默认：优先选择障碍物之前的目标点
+        
+        parking_policy: "left_side"
+        # 选项："left_side" 或 "right_side"
+        # 根据AGV习惯选择（例如充电桩位置）
+        
+        # ⚠️ 关键：搜索范围
+        forward_goal_search_length: 10.0
+        # 默认值：40.0 m
+        # AGV值：5.0-15.0 m
+        # 理由：室内环境小，搜索范围应与空间尺度匹配
+        # 建议：
+        #   - 狭窄走廊：5.0 m
+        #   - 中等空间：10.0 m
+        #   - 大型仓库：15.0 m
+        
+        backward_goal_search_length: 5.0
+        # 默认值：20.0 m → AGV：5.0 m
+        
+        goal_search_interval: 0.5
+        # 默认值：2.0 m
+        # AGV值：0.3-0.5 m
+        # 理由：更密集的搜索，提高找到合适目标点的概率
+        
+        longitudinal_margin: 1.0
+        # 默认值：3.0 m
+        # AGV值：0.5-1.5 m
+        # 理由：AGV车身小，与障碍物的纵向安全距离可以更小
+        
+        max_lateral_offset: 0.5
+        # 默认值：1.0 m
+        # AGV值：0.3-0.5 m
+        # 理由：走廊宽度有限，横向偏移应较小
+        
+        lateral_offset_interval: 0.2
+        # 默认值：0.5 m → AGV：0.1-0.2 m
+        
+        ignore_distance_from_lane_start: 0.0
+        # 保持默认
+        
+        margin_from_boundary: 0.3
+        # 默认值：0.75 m
+        # AGV值：0.2-0.4 m
+        # 理由：AGV宽度小，可以更靠近边界
+        
+        high_curvature_threshold: 0.2
+        # 默认值：0.1 rad/m
+        # AGV值：0.15-0.25 rad/m
+        # 理由：AGV转弯半径小，可以允许更高曲率
+        
+        bus_stop_area:
+          use_bus_stop_area: false
+          # AGV通常不适用
+          goal_search_interval: 0.75
+          lateral_offset_interval: 0.3
+      
+      # ========================================
+      # 占用栅格地图
+      # ========================================
+      occupancy_grid:
+        use_occupancy_grid_for_goal_search: true
+        # 建议启用：利用栅格地图避免碰撞
+        
+        use_occupancy_grid_for_goal_longitudinal_margin: false
+        # 可选启用
+        
+        use_occupancy_grid_for_path_collision_check: true
+        # 建议启用：室内环境复杂，需要碰撞检查
+        
+        occupancy_grid_collision_check_margin: 0.1
+        # 默认值：0.0 m
+        # AGV值：0.05-0.15 m
+        # 理由：添加小量安全margin
+        
+        theta_size: 360
+        # 保持默认：角度离散化
+        
+        obstacle_threshold: 60
+        # 保持默认：栅格占用阈值（0-100）
+      
+      # ========================================
+      # 障碍物识别
+      # ========================================
+      object_recognition:
+        # ⚠️ 简化碰撞检查margin（室内AGV）
+        collision_check_soft_margins: [2.0, 1.5, 1.0, 0.5, 0.3]
+        # 默认值：[5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0]
+        # AGV值：简化为5级
+        # 理由：减少计算量，室内环境相对可控
+        
+        collision_check_hard_margins: [0.3]
+        # 默认值：[0.6] m
+        # AGV值：0.2-0.3 m
+        # 理由：AGV体积小，hard margin可以更小
+        # 注意：应大于 surround_obstacle_checker 的距离
+        
+        object_recognition_collision_check_max_extra_stopping_margin: 0.5
+        # 默认值：1.0 m → AGV：0.5 m
+        
+        collision_check_outer_margin_factor: 2.0
+        # 保持默认
+        
+        th_moving_object_velocity: 0.5
+        # 默认值：1.0 m/s
+        # AGV值：0.3-0.5 m/s
+        # 理由：室内物体移动速度通常更慢
+        
+        detection_bound_offset: 5.0
+        # 默认值：15.0 m
+        # AGV值：3.0-10.0 m
+        # 理由：检测范围与forward_path_length匹配
+        
+        outer_road_detection_offset: 0.5
+        # 默认值：1.0 m → AGV：0.5 m
+        
+        inner_road_detection_offset: 0.0
+        # 保持默认
+      
+      # ========================================
+      # Pull Over配置 - ⚠️ 核心参数
+      # ========================================
+      pull_over:
+        
+        # --- 距离参数 ---
+        minimum_request_length: 5.0
+        # 默认值：0.0 m
+        # AGV值：3.0-10.0 m ⚠️ 必须设置！
+        # 理由：确保有足够距离生成pull over路径
+        # 计算公式：至少 = 2 × (v² / 2a) + buffer
+        #   例如：v=2m/s, a=0.5m/s² → 最小4m，建议5-10m
+        
+        pull_over_prepare_length: 15.0
+        # 默认值：100.0 m
+        # AGV值：10.0-20.0 m
+        # 理由：室内空间有限，准备距离应匹配
+        
+        decide_path_distance: 3.0
+        # 默认值：10.0 m
+        # AGV值：2.0-5.0 m
+        # 理由：决定路径的距离，影响重启判断（需要≥一半距离）
+        
+        # --- 速度参数 ---
+        pull_over_velocity: 0.8
+        # 默认值：3.0 m/s
+        # AGV值：0.5-1.0 m/s
+        # 理由：室内AGV低速运行，接近目标时应更慢
+        # 建议：根据AGV最大速度的30-50%设置
+        
+        pull_over_minimum_velocity: 0.5
+        # 默认值：1.38 m/s (5 km/h)
+        # AGV值：0.3-0.7 m/s
+        # 理由：AGV最小运行速度通常较低
+        
+        # --- 动力学参数 ---
+        maximum_deceleration: 0.5
+        # 默认值：1.0 m/s²
+        # AGV值：0.3-0.7 m/s²
+        # 理由：AGV通常采用更平缓的减速，避免货物晃动
+        
+        maximum_jerk: 0.5
+        # 默认值：1.0 m/s³
+        # AGV值：0.3-0.7 m/s³
+        # 理由：平滑的加加速度，提高舒适性
+        
+        # --- 路径选择 ---
+        path_priority: "close_goal"
+        # 默认值："efficient_path"
+        # AGV值："close_goal"
+        # 理由：AGV更注重精确停靠而非效率
+        
+        efficient_path_order: ["SHIFT"]
+        # 默认值：["SHIFT", "ARC_FORWARD", "ARC_BACKWARD"]
+        # AGV值：["SHIFT"]（仅使用简单shift）
+        # 理由：室内环境简单，不需要复杂的arc parking
+        
+        lane_departure_check_expansion_margin: 0.1
+        # 默认值：0.2 m → AGV：0.1 m
+        
+        # ========================================
+        # Shift Parking（横向移动停车）
+        # ========================================
+        shift_parking:
+          enable_shift_parking: true
+          # 建议启用：最简单的停车方式
+          
+          shift_sampling_num: 2
+          # 默认值：4
+          # AGV值：2-3
+          # 理由：减少计算量，室内环境简单
+          
+          maximum_lateral_jerk: 1.0
+          # 默认值：2.0 m/s³ → AGV：0.8-1.2 m/s³
+          
+          minimum_lateral_jerk: 0.3
+          # 默认值：0.5 m/s³ → AGV：0.2-0.4 m/s³
+          
+          deceleration_interval: 5.0
+          # 默认值：15.0 m → AGV：3.0-8.0 m
+          
+          after_shift_straight_distance: 0.5
+          # 默认值：1.0 m → AGV：0.3-0.7 m
+        
+        # ========================================
+        # Parallel Parking（平行停车）
+        # ========================================
+        parallel_parking:
+          max_steer_angle_margin_scale: 0.72
+          # 保持默认
+          
+          forward:
+            enable_arc_forward_parking: false
+            # AGV建议：禁用（通常不需要复杂停车）
+            after_forward_parking_straight_distance: 2.0
+            forward_parking_velocity: 1.38
+            forward_parking_lane_departure_margin: 0.0
+            forward_parking_path_interval: 1.0
+          
+          backward:
+            enable_arc_backward_parking: false
+            # AGV建议：禁用
+            after_backward_parking_straight_distance: 2.0
+            backward_parking_velocity: -1.38
+            backward_parking_lane_departure_margin: 0.0
+            backward_parking_path_interval: 1.0
+        
+        # ========================================
+        # Freespace Parking（自由空间停车）
+        # ========================================
+        freespace_parking:
+          enable_freespace_parking: true
+          # AGV建议：启用（用于复杂障碍环境）
+          
+          freespace_parking_algorithm: "astar"
+          # 选项："astar" 或 "rrtstar"
+          # 推荐：astar（更快，适合结构化环境）
+          
+          velocity: 0.5
+          # 默认值：1.0 m/s → AGV：0.3-0.7 m/s
+          
+          vehicle_shape_margin: 0.3
+          # 默认值：1.0 m
+          # AGV值：0.2-0.5 m
+          # 理由：AGV体积小，可以更靠近障碍物
+          
+          time_limit: 1500.0
+          # 默认值：3000.0 ms
+          # AGV值：1000.0-2000.0 ms
+          # 理由：缩短规划时间，提高响应速度
+          
+          max_turning_ratio: 0.5
+          # 保持默认
+          
+          turning_steps: 1
+          # 保持默认
+          
+          # --- 搜索配置 ---
+          search_configs:
+            theta_size: 72
+            # 默认值：120
+            # AGV值：48-72
+            # 理由：减少角度离散化，降低计算量
+            
+            angle_goal_range: 10.0
+            # 默认值：6.0 deg
+            # AGV值：8.0-12.0 deg
+            # 理由：允许更大的角度容差
+            
+            lateral_goal_range: 0.3
+            # 默认值：0.5 m → AGV：0.2-0.4 m
+            
+            longitudinal_goal_range: 1.0
+            # 默认值：2.0 m → AGV：0.5-1.5 m
+            
+            curve_weight: 0.5
+            # 保持默认
+            
+            reverse_weight: 1.0
+            # 保持默认
+            
+            direction_change_weight: 1.5
+            # 保持默认
+          
+          # --- 代价地图配置 ---
+          costmap_configs:
+            obstacle_threshold: 30
+            # 保持默认
+          
+          # --- A*搜索配置 ---
+          astar:
+            search_method: "forward"
+            # 选项："forward" 或 "backward"
+            only_behind_solutions: false
+            use_back: true
+            adapt_expansion_distance: true
+            expansion_distance: 0.5
+            near_goal_distance: 3.0
+            distance_heuristic_weight: 2.0
+            smoothness_weight: 0.5
+            obstacle_distance_weight: 1.75
+            goal_lat_distance_weight: 5.0
+          
+          # --- RRT*搜索配置 ---
+          rrtstar:
+            enable_update: true
+            use_informed_sampling: true
+            max_planning_time: 150.0
+            neighbor_radius: 8.0
+            margin: 1.0
+        
+        # ========================================
+        # Bezier Parking
+        # ========================================
+        bezier_parking:
+          pull_over_angle_threshold: 0.5
+          after_shift_straight_distance: 1.5
+      
+      # ========================================
+      # 停止条件
+      # ========================================
+      stop_condition:
+        maximum_deceleration_for_stop: 0.5
+        # 默认值：1.0 m/s² → AGV：0.5 m/s²
+        
+        maximum_jerk_for_stop: 0.5
+        # 默认值：1.0 m/s³ → AGV：0.5 m/s³
+      
+      # ========================================
+      # 路径安全检查
+      # ========================================
+      path_safety_check:
+        
+        # --- Ego预测路径 ---
+        ego_predicted_path:
+          min_velocity: 0.5
+          # 默认值：1.0 m/s → AGV：0.3-0.7 m/s
+          
+          min_acceleration: 0.5
+          # 默认值：1.0 m/s² → AGV：0.3-0.7 m/s²
+          
+          max_velocity: 2.0
+          # 默认值：1.0 m/s
+          # AGV值：AGV的最大速度（例如1.5-2.5 m/s）
+          
+          time_horizon_for_front_object: 3.0
+          # 默认值：5.0 s → AGV：2.0-4.0 s
+          
+          time_horizon_for_rear_object: 3.0
+          # 默认值：5.0 s → AGV：2.0-4.0 s
+          
+          time_resolution: 0.5
+          # 保持默认
+          
+          delay_until_departure: 0.5
+          # 默认值：1.0 s → AGV：0.3-0.7 s
+        
+        # --- 目标物体过滤 ---
+        target_filtering:
+          safety_check_time_horizon: 3.0
+          # 默认值：5.0 s → AGV：2.0-4.0 s
+          
+          safety_check_time_resolution: 1.0
+          # 保持默认
+          
+          # 检测范围
+          object_check_forward_distance: 20.0
+          # 默认值：100.0 m → AGV：10.0-30.0 m
+          
+          object_check_backward_distance: 10.0
+          # 默认值：100.0 m → AGV：5.0-15.0 m
+          
+          ignore_object_velocity_threshold: 0.5
+          # 默认值：1.0 m/s → AGV：0.3-0.7 m/s
+          
+          # ⚠️ 物体类型检查（根据AGV环境调整）
+          object_types_to_check:
+            check_car: false
+            # AGV环境通常没有汽车
+            check_truck: false
+            check_bus: false
+            check_trailer: false
+            check_bicycle: true
+            # 可能有（如果与其他移动机器人共存）
+            check_motorcycle: false
+            check_pedestrian: true
+            # ✓ 重要：室内必须检测人
+            check_unknown: true
+            # ✓ 保守策略：检测未知物体
+          
+          # 车道配置（AGV可能不适用）
+          object_lane_configuration:
+            check_current_lane: true
+            check_right_side_lane: false
+            check_left_side_lane: false
+            check_shoulder_lane: false
+            check_other_lane: false
+          
+          include_opposite_lane: false
+          invert_opposite_lane: false
+          check_all_predicted_path: true
+          use_all_predicted_path: true
+          use_predicted_path_outside_lanelet: false
+        
+        # --- 安全检查参数 ---
+        safety_check_params:
+          enable_safety_check: true
+          # 建议启用
+          
+          method: "integral_predicted_polygon"
+          # 保持默认
+          
+          keep_unsafe_time: 0.3
+          # 默认值：0.5 s → AGV：0.2-0.4 s
+          
+          publish_debug_marker: false
+          # 调试时可设为true
+          
+          # RSS参数
+          rss_params:
+            rear_vehicle_reaction_time: 1.0
+            # 默认值：2.0 s → AGV：0.5-1.5 s
+            
+            rear_vehicle_safety_time_margin: 0.5
+            # 默认值：1.0 s → AGV：0.3-0.7 s
+            
+            lateral_distance_max_threshold: 1.0
+            # 默认值：2.0 m → AGV：0.5-1.5 m
+            
+            longitudinal_distance_min_threshold: 1.0
+            # 默认值：3.0 m → AGV：0.5-2.0 m
+            
+            longitudinal_velocity_delta_time: 0.8
+            # 保持默认
+          
+          # Integral predicted polygon参数
+          integral_predicted_polygon_params:
+            forward_margin: 0.5
+            # 默认值：1.0 m → AGV：0.3-0.7 m
+            
+            backward_margin: 0.3
+            # 默认值：1.0 m → AGV：0.2-0.5 m
+            
+            lat_margin: 0.3
+            # 默认值：1.0 m → AGV：0.2-0.5 m
+            
+            time_horizon: 3.0
+            # 默认值：5.0 s → AGV：2.0-4.0 s
+          
+          hysteresis_factor_expand_rate: 1.0
+          # 保持默认
+          
+          collision_check_yaw_diff_threshold: 3.1416
+          # 保持默认（π rad = 180°）
+          
+          backward_path_length: 10.0
+          # 默认值：30.0 m → AGV：5.0-15.0 m
+          
+          forward_path_length: 20.0
+          # 默认值：100.0 m → AGV：10.0-30.0 m
+      
+      # ========================================
+      # 调试
+      # ========================================
+      debug:
+        print_debug_info: false
+        # 调试时设为true
+
+
+# ============================================================================
+# 文件3: scene_module_manager.param.yaml
+# ============================================================================
+---
+/**:
+  ros__parameters:
+    
+    # ========================================
+    # Slot配置 - ⚠️ AGV简化结构
+    # ========================================
+    # 说明：
+    #   - 室内AGV通常不需要复杂的换道、避障模块
+    #   - 简化为2个Slot：start和goal
+    #   - 如果需要避障，可以保留static_obstacle_avoidance
+    
+    slots:
+      - slot1  # Start Planner
+      - slot2  # Goal Planner
+    
+    # Slot 1: Start Planner
+    slot1:
+      - "start_planner"
+    
+    # Slot 2: Goal Planner
+    slot2:
+      - "goal_planner"
+      # 可选：如果需要简单避障
+      # - "static_obstacle_avoidance"
+    
+    # ========================================
+    # 模块配置
+    # ========================================
+    
+    start_planner:
+      enable_module: true
+      # 启用Start Planner（如果AGV需要规划起步路径）
+      
+      enable_simultaneous_execution_as_approved_module: false
+      # 不与其他模块同时执行
+      
+      enable_simultaneous_execution_as_candidate_module: false
+      
+      priority: 0
+      # 优先级（数字越小优先级越高）
+      
+      max_module_size: 1
+      # 最多同时运行1个start_planner实例
+    
+    goal_planner:
+      enable_module: true
+      # ✓ 必须启用
+      
+      enable_simultaneous_execution_as_approved_module: false
+      
+      enable_simultaneous_execution_as_candidate_module: false
+      
+      enable_rtc: false
+      # AGV建议：false（自动执行，不需要人工批准）
+      # 如果需要人工确认目标点，设为true
+      
+      priority: 0
+      
+      max_module_size: 1
+    
+    # ========================================
+    # 禁用的模块（AGV通常不需要）
+    # ========================================
+    # 以下模块在default_preset.yaml中设为false，这里无需配置
+    # - static_obstacle_avoidance
+    # - dynamic_obstacle_avoidance
+    # - lane_change_left
+    # - lane_change_right
+    # - avoidance_by_lane_change
+    # - side_shift
+
+
+# ============================================================================
+# 文件4: default_preset.yaml（模块启用配置）
+# ============================================================================
+---
+launch:
+  
+  # ========================================
+  # 启用的模块
+  # ========================================
+  - arg:
+      name: launch_goal_planner_module
+      default: "true"
+      # ✓ 必须启用
+  
+  - arg:
+      name: launch_start_planner_module
+      default: "true"
+      # ✓ 建议启用（如果需要规划起步）
+  
+  # ========================================
+  # 禁用的模块（AGV不需要）
+  # ========================================
+  - arg:
+      name: launch_static_obstacle_avoidance
+      default: "false"
+      # AGV建议：禁用（使用freespace parking代替）
+      # 如果需要简单避障，可以设为"true"
+  
+  - arg:
+      name: launch_dynamic_obstacle_avoidance_module
+      default: "false"
+      # 禁用动态避障
+  
+  - arg:
+      name: launch_lane_change_left
+      default: "false"
+      # 禁用左换道
+  
+  - arg:
+      name: launch_lane_change_right
+      default: "false"
+      # 禁用右换道
+  
+  - arg:
+      name: launch_avoidance_by_lane_change
+      default: "false"
+      # 禁用换道避障
+  
+  - arg:
+      name: launch_side_shift
+      default: "false"
+      # 禁用侧向移动（goal planner的shift已足够）
+  
+  - arg:
+      name: launch_external_request_lane_change_left
+      default: "false"
+  
+  - arg:
+      name: launch_external_request_lane_change_right
+      default: "false"
+
+
+# ============================================================================
+# 文件5: start_planner.param.yaml（可选）
+# ============================================================================
+---
+/**:
+  ros__parameters:
+    start_planner:
+      
+      # ========================================
+      # 到达判断
+      # ========================================
+      th_arrived_distance: 0.3
+      # 默认值：1.0 m → AGV：0.3 m
+      
+      th_stopped_velocity: 0.01
+      # 保持默认
+      
+      th_stopped_time: 1.0
+      # 默认值：2.0 s → AGV：1.0 s
+      
+      # ========================================
+      # 起步配置
+      # ========================================
+      prepare_time_before_start: 1.0
+      # 起步前准备时间
+      
+      th_distance_to_middle_of_the_road: 0.3
+      # 默认值：0.5 m → AGV：0.2-0.3 m
+      
+      # ========================================
+      # 碰撞检查
+      # ========================================
+      collision_check_margins: [1.0, 0.5, 0.3]
+      # 默认值：更多级别
+      # AGV值：简化
+      
+      collision_check_distance_from_end: 5.0
+      # 默认值：可能较大
+      # AGV值：3.0-8.0 m
+      
+      th_moving_object_velocity: 0.5
+      # 默认值：1.0 m/s → AGV：0.3-0.7 m/s
+
+
+# ============================================================================
+# 使用说明
+# ============================================================================
+# 
+# 1. 备份原始配置文件
+#    cd src/launcher/autoware_launch/autoware_launch/config/planning/
+#    cp -r scenario_planning scenario_planning_backup
+# 
+# 2. 根据AGV实际参数调整：
+#    - 最大速度
+#    - 车辆尺寸（vehicle_info.param.yaml）
+#    - 场地大小
+#    - 定位精度
+# 
+# 3. 关键参数调整顺序：
+#    (1) forward_path_length: 根据场地大小设置（20-50m）
+#    (2) minimum_request_length: 根据最大速度计算（≥5m）
+#    (3) th_arrived_distance: 根据定位精度设置（0.2-0.3m）
+#    (4) pull_over_velocity: 根据最大速度的30-50%设置
+#    (5) maximum_deceleration/jerk: 根据AGV动力学设置
+# 
+# 4. 测试流程：
+#    (1) 启动Autoware
+#    (2) 设置目标点距离 ≥ 10m
+#    (3) 观察路径规划是否成功
+#    (4) 逐步缩短距离，找到最小可行距离
+#    (5) 根据结果微调参数
+# 
+# 5. 调试命令：
+#    # 查看当前参数
+#    ros2 param dump /planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner
+#    
+#    # 实时修改参数
+#    ros2 param set /planning/.../forward_path_length 30.0
+#    
+#    # 监控路径输出
+#    ros2 topic echo /planning/behavior_planning/path_with_lane_id
+# 
+# ============================================================================
+
