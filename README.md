@@ -1,26 +1,17 @@
 <!--
  * @Autor: wei.canming
  * @Version: 1.0
- * @Date: 2025-10-18 10:59:54
+ * @Date: 2025-10-14 10:28:32
  * @LastEditors: wei.canming
- * @LastEditTime: 2025-10-24 09:37:49
+ * @LastEditTime: 2025-10-24 09:45:57
  * @Description: 
 -->
 # 户外导航项目 Autoware 调试过程及结果  
 
-<!--
- * @Autor: wei.canming
- * @Version: 1.0
- * @Date: 2025-10-14 10:28:32
- * @LastEditors: wei.canming
- * @LastEditTime: 2025-10-23 20:55:22
- * @Description: 
--->
-# <title>调试过程及结果记录</title>
-
 ## 问题描述
 
-- `planning`模块的最终输出话题 /planning/scenario_planning/trajectory [Trajectory] 中的 longitudinal_velocity_mps 数据为0
+- `planning`模块的最终输出话题 `/planning/scenario_planning/trajectory [Trajectory]` 中的 `longitudinal_velocity_mps` 数据为0
+
 ![/planning/scenario_planning/trajectory 话题输出](screen_shots/planning_scenairy_traj.jpeg)
 
 
@@ -39,6 +30,7 @@
 
 
 - `behavior_path_planner` 节点输出的话题 `/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id` 中，路径点的 `longitudinal_velocity_mps` 值为0。
+
 ![behavior_path_planner节点的输出](screen_shots/path_with_lane_id.png) 
 
 
