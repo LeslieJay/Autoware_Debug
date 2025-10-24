@@ -403,6 +403,15 @@ void BehaviorPathPlannerNode::run()
       // [VEL_DEBUG] 添加速度调试日志
       const auto & first_point = path->points.front().point;
       const auto & last_point = path->points.back().point;
+      // [VEL_DEBUG] 打印最终发布路径的速度信息，用于调试速度传递问题
+      // 每1000ms打印一次，避免日志过多
+      // 输出内容：路径点数量、首点速度、尾点速度
+      // 使用 RCLCPP_INFO_THROTTLE 宏来限制日志输出频率
+      // 参数说明：
+      // - get_logger(): 获取当前节点的日志记录器
+      // - *get_clock(): 获取当前节点的时钟，用于计算时间间隔
+      // - 1000: 节流时间（毫秒），即每1000ms（1秒）最多输出一次日志
+      // 这样可以避免在高频率循环中产生过多的日志输出，影响系统性能
       RCLCPP_INFO_THROTTLE(
         get_logger(), *get_clock(), 1000,
         "[VEL_DEBUG][BPP][PUBLISH] Output path: points=%zu, first_vel=%.3f m/s, last_vel=%.3f m/s",
@@ -714,6 +723,10 @@ Path BehaviorPathPlannerNode::convertToPath(
   if (!is_ready) {
     for (auto & point : output.points) {
       point.longitudinal_velocity_mps = 0.0;
+      RCLCPP_INFO_THROTTLE(
+        get_logger(), *get_clock(), 1000,"[VEL_DEBUG][BPP][CONVERT] Set point velocity to 0.0"
+      );
+      // ************************************************* //
     }
   }
 

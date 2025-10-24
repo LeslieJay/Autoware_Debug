@@ -37,6 +37,12 @@
 
 namespace
 {
+/**
+ * @brief 从位姿创建Point32消息
+ * 
+ * @param pose 输入位姿
+ * @return geometry_msgs::msg::Point32 转换后的Point32消息
+ */
 geometry_msgs::msg::Point32 create_point32(const geometry_msgs::msg::Pose & pose)
 {
   geometry_msgs::msg::Point32 p;
@@ -46,6 +52,18 @@ geometry_msgs::msg::Point32 create_point32(const geometry_msgs::msg::Pose & pose
   return p;
 };
 
+/**
+ * @brief 创建执行区域多边形
+ * 
+ * 根据车辆信息和当前位姿,创建一个矩形多边形表示车辆的执行区域。
+ * 该区域用于判断是否有足够的空间执行变道避障。
+ * 
+ * @param vehicle_info 车辆信息
+ * @param pose 当前车辆位姿
+ * @param additional_lon_offset 额外的纵向偏移量(米)
+ * @param additional_lat_offset 额外的横向偏移量(米)
+ * @return geometry_msgs::msg::Polygon 执行区域多边形(由4个顶点组成的矩形)
+ */
 geometry_msgs::msg::Polygon create_execution_area(
   const autoware::vehicle_info_utils::VehicleInfo & vehicle_info,
   const geometry_msgs::msg::Pose & pose, double additional_lon_offset, double additional_lat_offset)
@@ -54,11 +72,12 @@ geometry_msgs::msg::Polygon create_execution_area(
   const double & width = vehicle_info.vehicle_width_m;
   const double & base_to_rear = vehicle_info.rear_overhang_m;
 
-  // if stationary object, extend forward and backward by the half of lon length
+  // 计算前后左右的偏移量
   const double forward_lon_offset = base_to_front + additional_lon_offset;
   const double backward_lon_offset = -base_to_rear;
   const double lat_offset = width / 2.0 + additional_lat_offset;
 
+  // 计算矩形的四个顶点
   const auto p1 = autoware_utils::calc_offset_pose(pose, forward_lon_offset, lat_offset, 0.0);
   const auto p2 = autoware_utils::calc_offset_pose(pose, forward_lon_offset, -lat_offset, 0.0);
   const auto p3 = autoware_utils::calc_offset_pose(pose, backward_lon_offset, -lat_offset, 0.0);
@@ -81,6 +100,11 @@ using autoware::behavior_path_planner::LaneChangeModuleType;
 using autoware::behavior_path_planner::ObjectInfo;
 using autoware::behavior_path_planner::Point2d;
 
+/**
+ * @brief AvoidanceByLaneChange类的构造函数实现
+ * 
+ * 初始化通过变道避障的场景对象,包括避障参数和避障辅助工具。
+ */
 AvoidanceByLaneChange::AvoidanceByLaneChange(
   const std::shared_ptr<LaneChangeParameters> & parameters,
   std::shared_ptr<AvoidanceByLCParameters> avoidance_parameters)
@@ -90,10 +114,22 @@ AvoidanceByLaneChange::AvoidanceByLaneChange(
 {
 }
 
+/**
+ * @brief 检查是否需要执行变道避障
+ * 
+ * 该函数检查以下条件:
+ * 1. 是否有需要避让的目标对象
+ * 2. 目标对象是否确实需要避让
+ * 3. 车辆与障碍物之间的距离是否足够完成变道
+ * 
+ * @return true 需要执行变道避障
+ * @return false 不需要执行
+ */
 bool AvoidanceByLaneChange::specialRequiredCheck() const
 {
   const auto & data = avoidance_data_;
 
+  // 检查是否有目标对象
   if (data.target_objects.empty()) {
     RCLCPP_DEBUG(logger_, "no empty objects");
     return false;
@@ -133,11 +169,25 @@ bool AvoidanceByLaneChange::specialRequiredCheck() const
   return nearest_object.longitudinal > std::max(minimum_lane_change_length, minimum_avoid_length);
 }
 
+/**
+ * @brief 检查模块是否应该过期
+ * 
+ * 如果不再满足执行变道避障的条件,则模块应该过期。
+ * 
+ * @return true 模块应该过期
+ * @return false 模块仍然有效
+ */
 bool AvoidanceByLaneChange::specialExpiredCheck() const
 {
   return !specialRequiredCheck();
 }
 
+/**
+ * @brief 更新避障相关的特殊数据
+ * 
+ * 重新计算避障规划数据,更新目标对象列表,确定变道方向,
+ * 并补偿因传感器遮挡等原因暂时丢失的目标对象。
+ */
 void AvoidanceByLaneChange::updateSpecialData()
 {
   const auto p = std::dynamic_pointer_cast<AvoidanceParameters>(avoidance_parameters_);
@@ -161,26 +211,47 @@ void AvoidanceByLaneChange::updateSpecialData()
     [](auto a, auto b) { return a.longitudinal < b.longitudinal; });
 }
 
+/**
+ * @brief 计算避障规划数据
+ * 
+ * 生成用于避障规划的所有必要数据,包括参考路径、当前车道信息和目标对象列表。
+ * 
+ * @param debug 调试数据输出
+ * @return AvoidancePlanningData 避障规划数据
+ */
 AvoidancePlanningData AvoidanceByLaneChange::calcAvoidancePlanningData(
   AvoidanceDebugData & debug) const
 {
   AvoidancePlanningData data;
 
-  // reference pose
+  // 设置参考位姿
   data.reference_pose = getEgoPose();
 
+  // 获取粗略的参考路径
   data.reference_path_rough = prev_module_output_.path;
 
+  // 使用样条曲线重采样路径以获得更平滑的路径
   const auto resample_interval = avoidance_parameters_->resample_interval_for_planning;
   data.reference_path = utils::resamplePathWithSpline(data.reference_path_rough, resample_interval);
 
+  // 获取当前车道
   data.current_lanelets = get_current_lanes();
 
+  // 填充需要避让的目标对象
   fillAvoidanceTargetObjects(data, debug);
 
   return data;
 }
 
+/**
+ * @brief 填充避障目标对象
+ * 
+ * 从所有检测到的动态对象中筛选出需要避让的目标对象。
+ * 将对象分为目标车道内的对象和目标车道外的对象。
+ * 
+ * @param data 避障规划数据(输出)
+ * @param debug 调试数据(未使用)
+ */
 void AvoidanceByLaneChange::fillAvoidanceTargetObjects(
   AvoidancePlanningData & data, [[maybe_unused]] DebugData & debug) const
 {
@@ -229,6 +300,19 @@ void AvoidanceByLaneChange::fillAvoidanceTargetObjects(
   data.target_objects = target_lane_objects;
 }
 
+/**
+ * @brief 为预测对象创建对象数据
+ * 
+ * 为检测到的对象创建详细的对象数据,包括:
+ * - 相对于中心线的位置
+ * - 包络多边形
+ * - 移动时间
+ * - 是否需要避让
+ * 
+ * @param data 避障规划数据
+ * @param object 预测对象
+ * @return std::optional<ObjectData> 如果对象有效则返回对象数据,否则返回nullopt
+ */
 std::optional<ObjectData> AvoidanceByLaneChange::createObjectData(
   const AvoidancePlanningData & data, const PredictedObject & object) const
 {
@@ -293,6 +377,14 @@ std::optional<ObjectData> AvoidanceByLaneChange::createObjectData(
   return object_data;
 }
 
+/**
+ * @brief 计算最小避障长度
+ * 
+ * 根据最近障碍物的类型和位置,计算完成避障所需的最小纵向距离。
+ * 
+ * @param nearest_object 最近的障碍物对象
+ * @return double 最小避障长度(米)
+ */
 double AvoidanceByLaneChange::calcMinAvoidanceLength(const ObjectData & nearest_object) const
 {
   const auto ego_width = getCommonParam().vehicle_width;
@@ -312,6 +404,13 @@ double AvoidanceByLaneChange::calcMinAvoidanceLength(const ObjectData & nearest_
   return avoidance_helper_->getMinAvoidanceDistance(shift_length);
 }
 
+/**
+ * @brief 计算最小距离缓冲
+ * 
+ * 计算变道所需的最小距离缓冲区。
+ * 
+ * @return double 最小距离缓冲(米)
+ */
 double AvoidanceByLaneChange::calc_minimum_dist_buffer() const
 {
   const auto [_, dist_buffer] = utils::lane_change::calculation::calc_lc_length_and_dist_buffer(
@@ -319,6 +418,14 @@ double AvoidanceByLaneChange::calc_minimum_dist_buffer() const
   return dist_buffer.min;
 }
 
+/**
+ * @brief 计算横向偏移量
+ * 
+ * 计算所有对象类型中所需的最大横向偏移量,
+ * 包括包络缓冲裕度、硬裕度和软裕度。
+ * 
+ * @return double 横向偏移量(米)
+ */
 double AvoidanceByLaneChange::calcLateralOffset() const
 {
   auto additional_lat_offset{0.0};

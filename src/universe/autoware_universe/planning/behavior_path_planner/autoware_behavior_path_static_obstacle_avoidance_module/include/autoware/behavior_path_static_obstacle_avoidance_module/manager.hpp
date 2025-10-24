@@ -28,6 +28,11 @@
 namespace autoware::behavior_path_planner
 {
 
+/**
+ * @brief static_obstacle_avoidance模块管理器
+ * 
+ * 负责管理静态障碍物避障模块的实例创建、参数初始化和更新。
+ */
 class StaticObstacleAvoidanceModuleManager : public SceneModuleManagerInterface
 {
 public:
@@ -35,8 +40,16 @@ public:
   {
   }
 
+  /**
+   * @brief 初始化模块
+   * @param node ROS2节点指针
+   */
   void init(rclcpp::Node * node) override;
 
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override
   {
     return std::make_unique<StaticObstacleAvoidanceModule>(

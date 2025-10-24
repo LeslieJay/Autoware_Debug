@@ -17,6 +17,7 @@
 
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 
+/// @brief ModuleConfigParameters结构体
 struct ModuleConfigParameters
 {
   bool enable_module{false};
@@ -25,6 +26,7 @@ struct ModuleConfigParameters
   bool enable_simultaneous_execution_as_candidate_module{false};
 };
 
+/// @brief BehaviorPathPlannerParameters结构体
 struct BehaviorPathPlannerParameters
 {
   double traffic_light_signal_timeout{1.0};

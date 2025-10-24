@@ -28,13 +28,26 @@
 namespace autoware::behavior_path_planner
 {
 
+/**
+ * @brief side_shift模块管理器
+ * 
+ * 负责管理侧向偏移模块的实例创建、参数初始化和更新。
+ */
 class SideShiftModuleManager : public SceneModuleManagerInterface
 {
 public:
   SideShiftModuleManager() : SceneModuleManagerInterface{"side_shift"} {}
 
+  /**
+   * @brief 初始化模块
+   * @param node ROS2节点指针
+   */
   void init(rclcpp::Node * node) override;
 
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override
   {
     return std::make_unique<SideShiftModule>(

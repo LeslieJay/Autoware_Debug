@@ -57,6 +57,21 @@ using autoware_utils::calc_offset_pose;
 
 namespace autoware::behavior_path_planner
 {
+/**
+ * @brief StartPlanner 模块构造函数
+ * 
+ * 该构造函数负责初始化 StartPlanner 模块，包括：
+ * 1. 根据参数配置启用不同类型的起步规划器（Shift、Geometric）
+ * 2. 创建自由空间规划器（Freespace）及其异步定时器
+ * 3. 加载车辆信息参数
+ * 
+ * @param name 模块名称
+ * @param node ROS2 节点引用
+ * @param parameters StartPlanner 参数配置
+ * @param rtc_interface_ptr_map RTC（Runtime Cooperation）接口映射
+ * @param objects_of_interest_marker_interface_ptr_map 感兴趣对象标记接口映射
+ * @param planning_factor_interface 规划因子接口
+ */
 StartPlannerModule::StartPlannerModule(
   const std::string & name, rclcpp::Node & node,
   const std::shared_ptr<StartPlannerParameters> & parameters,
@@ -69,20 +84,26 @@ StartPlannerModule::StartPlannerModule(
   vehicle_info_{autoware::vehicle_info_utils::VehicleInfoUtils(node).getVehicleInfo()},
   is_freespace_planner_cb_running_{false}
 {
-  // set enabled planner
+  // 根据参数配置启用不同的起步规划器
+  // Shift Pull Out: 用于简单的路边起步（横向平移）
   if (parameters_->enable_shift_pull_out) {
     start_planners_.push_back(std::make_shared<ShiftPullOut>(node, *parameters, time_keeper_));
   }
+  // Geometric Pull Out: 用于停车位起步（几何弧线）
   if (parameters_->enable_geometric_pull_out) {
     start_planners_.push_back(std::make_shared<GeometricPullOut>(node, *parameters, time_keeper_));
   }
+  // 检查是否至少有一个规划器被启用
   if (start_planners_.empty()) {
     RCLCPP_ERROR(getLogger(), "Not found enabled planner");
   }
 
+  // 如果启用自由空间规划器，创建专用定时器在独立线程中运行
+  // Freespace Planner: 用于复杂环境的紧急起步（使用A*/RRT*算法）
   if (parameters_->enable_freespace_planner) {
     freespace_planner_ = std::make_unique<FreespacePullOut>(node, *parameters);
-    const auto freespace_planner_period_ns = rclcpp::Rate(1.0).period();
+    const auto freespace_planner_period_ns = rclcpp::Rate(1.0).period();  // 1Hz 定时器
+    // 创建互斥回调组，确保 Freespace 规划器在独立线程中运行
     freespace_planner_timer_cb_group_ =
       node.create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     freespace_planner_timer_ = rclcpp::create_timer(
@@ -92,17 +113,32 @@ StartPlannerModule::StartPlannerModule(
   }
 }
 
+/**
+ * @brief 自由空间规划器定时器回调函数（异步执行）
+ * 
+ * 该函数在独立线程中以 1Hz 频率运行，用于处理复杂场景下的起步规划：
+ * 1. 线程安全地复制主线程的规划数据
+ * 2. 检查是否满足启动自由空间规划的条件（车辆停止、无可用路径）
+ * 3. 如果车辆被困住（stuck），尝试使用 Freespace 规划器生成路径
+ * 4. 将规划结果异步传回主线程
+ * 
+ * @note 该函数运行在独立线程中，需要通过互斥锁保护共享数据
+ * @note Freespace 规划器使用 A*/RRT* 算法，计算量大，适合异步执行
+ */
 void StartPlannerModule::onFreespacePlannerTimer()
 {
+  // 设置回调运行标志，防止重入
   const ScopedFlag flag(is_freespace_planner_cb_running_);
 
+  // 初始化线程局部变量
   std::shared_ptr<const PlannerData> local_planner_data{nullptr};
   std::optional<ModuleStatus> current_status_opt{std::nullopt};
   std::optional<StartPlannerParameters> parameters_opt{std::nullopt};
   std::optional<PullOutStatus> pull_out_status_opt{std::nullopt};
   bool is_stopped{false};
 
-  // making a local copy of thread sensitive data
+  // === 线程安全数据复制 ===
+  // 从主线程复制规划数据到本地，避免长时间持有锁
   {
     std::lock_guard<std::mutex> guard(start_planner_data_mutex_);
     if (start_planner_data_) {
@@ -114,7 +150,10 @@ void StartPlannerModule::onFreespacePlannerTimer()
       is_stopped = start_planner_data.is_stopped;
     }
   }
-  // finish copying thread sensitive data
+  // 数据复制完成，锁已释放
+  
+  // === 前置条件检查 ===
+  // 如果数据不完整，直接返回
   if (!local_planner_data || !current_status_opt || !parameters_opt || !pull_out_status_opt) {
     return;
   }
@@ -123,62 +162,116 @@ void StartPlannerModule::onFreespacePlannerTimer()
   const auto & parameters = parameters_opt.value();
   const auto & pull_out_status = pull_out_status_opt.value();
 
+  // 如果模块处于空闲状态，不需要规划
   if (current_status == ModuleStatus::IDLE) {
     return;
   }
 
+  // 如果没有代价地图数据，无法进行自由空间规划
   if (!local_planner_data->costmap) {
     return;
   }
 
+  // 检查代价地图是否为新数据（1秒内更新）
   const bool is_new_costmap =
     (clock_->now() - local_planner_data->costmap->header.stamp).seconds() < 1.0;
   if (!is_new_costmap) {
     return;
   }
 
+  // === 判断是否启动自由空间规划 ===
+  // 车辆被困住的条件：车辆停止 + 规划器类型为 STOP + 没有找到可用路径
   const bool is_stuck = is_stopped && pull_out_status.planner_type == PlannerType::STOP &&
                         !pull_out_status.found_pull_out_path;
   if (is_stuck) {
+    // 尝试使用自由空间规划器生成路径
     const auto free_space_status =
       planFreespacePath(parameters, local_planner_data, pull_out_status);
     if (free_space_status) {
+      // 将规划结果写回共享变量，供主线程使用
       std::lock_guard<std::mutex> guard(start_planner_data_mutex_);
       freespace_thread_status_ = free_space_status;
     }
   }
 }
 
+/**
+ * @brief 模块主执行函数（每个规划周期调用）
+ * 
+ * 该函数是 StartPlanner 模块的入口点，负责：
+ * 1. 更新模块数据状态
+ * 2. 根据模块激活状态决定执行哪种规划：
+ *    - 未激活或需要准备转向灯：返回等待批准的路径（停止路径）
+ *    - 已激活：执行正式的起步规划
+ * 
+ * @return BehaviorModuleOutput 包含规划路径、参考路径、转向信号等信息
+ * 
+ * @note 该函数由 PlannerManager 在每个规划周期调用
+ */
 BehaviorModuleOutput StartPlannerModule::run()
 {
+  // 更新模块数据（从主线程同步数据，检查状态变化）
   updateData();
+  
+  // 如果模块未激活或需要准备转向灯，返回等待批准的路径（停止路径）
   if (!isActivated() || needToPrepareBlinkerBeforeStartDrivingForward()) {
     return planWaitingApproval();
   }
 
+  // 执行正式的起步规划
   return plan();
 }
 
+/**
+ * @brief 模块进入时的处理函数
+ * 
+ * 当 StartPlanner 模块被激活时调用，负责初始化模块的内部状态
+ */
 void StartPlannerModule::processOnEntry()
 {
   initVariables();
 }
 
+/**
+ * @brief 模块退出时的处理函数
+ * 
+ * 当 StartPlanner 模块被停用时调用，负责清理模块的内部状态
+ */
 void StartPlannerModule::processOnExit()
 {
   initVariables();
 }
 
+/**
+ * @brief 初始化模块内部变量
+ * 
+ * 该函数重置以下内容：
+ * 1. 路径候选（path_candidate_）
+ * 2. 参考路径（path_reference_）
+ * 3. 调试标记
+ * 4. 信息标记
+ * 5. 安全检查参数
+ * 6. 碰撞检查调试映射
+ */
 void StartPlannerModule::initVariables()
 {
-  resetPathCandidate();
-  resetPathReference();
-  debug_marker_.markers.clear();
-  info_marker_.markers.clear();
-  initializeSafetyCheckParameters();
-  initializeCollisionCheckDebugMap(debug_data_.collision_check);
+  resetPathCandidate();                     // 重置路径候选
+  resetPathReference();                     // 重置参考路径
+  debug_marker_.markers.clear();            // 清空调试标记
+  info_marker_.markers.clear();             // 清空信息标记
+  initializeSafetyCheckParameters();        // 初始化安全检查参数
+  initializeCollisionCheckDebugMap(debug_data_.collision_check);  // 初始化碰撞检查调试映射
 }
 
+/**
+ * @brief 更新自车预测路径参数
+ * 
+ * 从 StartPlanner 参数中提取并更新自车预测路径参数，
+ * 用于后续的安全检查和碰撞检测
+ * 
+ * @param ego_predicted_path_params 待更新的自车预测路径参数
+ * @param start_planner_params StartPlanner 参数配置
+ */
 void StartPlannerModule::updateEgoPredictedPathParams(
   std::shared_ptr<EgoPredictedPathParams> & ego_predicted_path_params,
   const std::shared_ptr<StartPlannerParameters> & start_planner_params)
@@ -187,6 +280,15 @@ void StartPlannerModule::updateEgoPredictedPathParams(
     std::make_shared<EgoPredictedPathParams>(start_planner_params->ego_predicted_path_params);
 }
 
+/**
+ * @brief 更新安全检查参数
+ * 
+ * 从 StartPlanner 参数中提取并更新安全检查参数，
+ * 包括 RSS（Responsibility-Sensitive Safety）参数、碰撞检测阈值等
+ * 
+ * @param safety_check_params 待更新的安全检查参数
+ * @param start_planner_params StartPlanner 参数配置
+ */
 void StartPlannerModule::updateSafetyCheckParams(
   std::shared_ptr<SafetyCheckParams> & safety_check_params,
   const std::shared_ptr<StartPlannerParameters> & start_planner_params)
@@ -195,6 +297,15 @@ void StartPlannerModule::updateSafetyCheckParams(
     std::make_shared<SafetyCheckParams>(start_planner_params->safety_check_params);
 }
 
+/**
+ * @brief 更新对象过滤参数
+ * 
+ * 从 StartPlanner 参数中提取并更新对象过滤参数，
+ * 用于筛选需要进行碰撞检测的动态对象（车辆、行人等）
+ * 
+ * @param objects_filtering_params 待更新的对象过滤参数
+ * @param start_planner_params StartPlanner 参数配置
+ */
 void StartPlannerModule::updateObjectsFilteringParams(
   std::shared_ptr<ObjectsFilteringParams> & objects_filtering_params,
   const std::shared_ptr<StartPlannerParameters> & start_planner_params)
@@ -203,80 +314,125 @@ void StartPlannerModule::updateObjectsFilteringParams(
     std::make_shared<ObjectsFilteringParams>(start_planner_params->objects_filtering_params);
 }
 
+/**
+ * @brief 更新模块数据状态（每个规划周期调用）
+ * 
+ * 该函数是数据同步的核心，负责：
+ * 1. 线程安全地更新共享数据供 Freespace 规划器使用
+ * 2. 从 Freespace 规划器异步获取规划结果
+ * 3. 检测路由变化并重置状态
+ * 4. 跟踪车辆起步状态（首次接合、开始移动等）
+ * 5. 更新倒车完成状态
+ * 6. 更新动态对象安全状态
+ * 
+ * @note 该函数在 run() 的开头被调用，确保使用最新的数据进行规划
+ */
 void StartPlannerModule::updateData()
 {
   autoware_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
-  // The method PlannerManager::run() calls SceneModuleInterface::setData and
-  // SceneModuleInterface::setPreviousModuleOutput() before this module's run() method is called
-  // with module_ptr->run(). Then module_ptr->run() invokes StartPlannerModule::updateData and,
-  // finally, the planWaitingApproval()/plan() methods are called by run(). So we can copy the
-  // latest current_status to start_planner_data_ here for later usage.
+  // === 调用时序说明 ===
+  // PlannerManager::run() 调用顺序：
+  // 1. SceneModuleInterface::setData() - 设置规划数据
+  // 2. SceneModuleInterface::setPreviousModuleOutput() - 设置前一模块输出
+  // 3. module_ptr->run() - 调用本模块的 run()
+  //    3.1 run() 首先调用 updateData() (当前函数)
+  //    3.2 然后调用 planWaitingApproval() 或 plan()
+  // 因此在这里可以安全地复制最新状态数据到 start_planner_data_ 供 Freespace 使用
 
-  // NOTE: onFreespacePlannerTimer copies start_planner_data to its thread local variable, so we
-  // need to lock start_planner_data_ here to avoid data race. But the following clone process is
-  // lightweight because most of the member variables of PlannerData/RouteHandler is
-  // shared_ptrs/bool
-  // making a local copy of thread sensitive data
+  // === 线程安全数据同步 ===
+  // 注意：onFreespacePlannerTimer() 会复制 start_planner_data_ 到其线程局部变量，
+  // 所以这里需要加锁避免数据竞争。但复制过程是轻量的，因为 PlannerData/RouteHandler
+  // 的大多数成员变量都是 shared_ptr 或 bool 类型
   {
     std::lock_guard<std::mutex> guard(start_planner_data_mutex_);
+    // 初始化 start_planner_data_（如果未初始化）
     if (!start_planner_data_) {
       start_planner_data_ = StartPlannerData();
     }
+    // 更新共享数据（供 Freespace 规划器线程使用）
     start_planner_data_.value().update(
       *parameters_, *planner_data_, getCurrentStatus(), status_, isStopped());
+    
+    // 从 Freespace 规划器线程获取异步规划结果
     if (freespace_thread_status_) {
-      // if freespace solution is available, copy it to status_ on main thread
+      // 如果 Freespace 规划器找到了解决方案，复制到主线程的 status_
       const auto & freespace_status = freespace_thread_status_.value();
       status_.pull_out_path = freespace_status.pull_out_path;
       status_.pull_out_start_pose = freespace_status.pull_out_start_pose;
       status_.planner_type = freespace_status.planner_type;
       status_.found_pull_out_path = freespace_status.found_pull_out_path;
       status_.driving_forward = freespace_status.driving_forward;
-      // and then reset it
+      // 重置 Freespace 线程状态（已被消费）
       freespace_thread_status_ = std::nullopt;
     }
   }
-  // finish copying thread sensitive data
+  // 线程敏感数据复制完成，锁已释放
 
+  // === 路由变化检测 ===
+  // 如果收到新路由，重置所有规划状态
   if (receivedNewRoute()) {
     resetStatus();
     DEBUG_PRINT("StartPlannerModule::updateData() received new route, reset status");
   }
 
+  // === 跟踪首次接合并向前驾驶的时间 ===
+  // 当满足以下条件时记录时间戳：
+  // 1. 系统处于自主驾驶模式
+  // 2. 车辆正在向前行驶
+  // 3. 尚未记录首次接合时间
   if (
     planner_data_->operation_mode->mode == OperationModeState::AUTONOMOUS &&
     status_.driving_forward && !status_.first_engaged_and_driving_forward_time) {
     status_.first_engaged_and_driving_forward_time = clock_->now();
   }
 
-  constexpr double moving_velocity_threshold = 0.1;
+  // === 检测车辆是否已经开始移动（完成起步） ===
+  constexpr double moving_velocity_threshold = 0.1;  // 0.1 m/s 速度阈值
   const double & ego_velocity = planner_data_->self_odometry->twist.twist.linear.x;
   if (status_.first_engaged_and_driving_forward_time && ego_velocity > moving_velocity_threshold) {
-    // Ego is engaged, and has moved
+    // 车辆已接合并且开始移动，标记为已出发
     status_.has_departed = true;
   }
 
+  // === 检查倒车是否完成 ===
   status_.backward_driving_complete = hasFinishedBackwardDriving();
   if (status_.backward_driving_complete) {
+    // 倒车完成后更新状态（切换到前进模式、请求新的批准等）
     updateStatusAfterBackwardDriving();
     DEBUG_PRINT("StartPlannerModule::updateData() completed backward driving");
   }
 
+  // === 更新动态对象安全状态 ===
+  // 如果不需要动态对象碰撞检测，则认为是安全的
+  // 否则，检查是否与动态对象有碰撞
   status_.is_safe_dynamic_objects =
     (!requiresDynamicObjectsCollisionDetection()) ? true : !hasCollisionWithDynamicObjects();
 }
 
+/**
+ * @brief 检查是否完成倒车驾驶
+ * 
+ * 判断车辆是否完成倒车并到达起步位置，需要同时满足三个条件：
+ * 1. 当前状态为倒车模式（driving_forward = false）
+ * 2. 车辆距离起步位置足够近（小于到达距离阈值）
+ * 3. 车辆已经停止（速度低于停止速度阈值）
+ * 
+ * @return true 倒车完成，false 倒车未完成或不处于倒车模式
+ * 
+ * @note 倒车完成后会触发 updateStatusAfterBackwardDriving() 切换到前进模式
+ */
 bool StartPlannerModule::hasFinishedBackwardDriving() const
 {
-  // check ego car is close enough to pull out start pose and stopped
+  // 检查自车是否足够接近起步位置并且已停止
   const auto current_pose = planner_data_->self_odometry->pose.pose;
   const auto distance = autoware_utils::calc_distance2d(current_pose, status_.pull_out_start_pose);
 
-  const bool is_near = distance < parameters_->th_arrived_distance;
+  const bool is_near = distance < parameters_->th_arrived_distance;  // 距离判断
   const double ego_vel = utils::l2Norm(planner_data_->self_odometry->twist.twist.linear);
-  const bool is_stopped = ego_vel < parameters_->th_stopped_velocity;
+  const bool is_stopped = ego_vel < parameters_->th_stopped_velocity;  // 速度判断
 
+  // 倒车完成的条件：不是前进模式 + 距离近 + 已停止
   const bool back_finished = !status_.driving_forward && is_near && is_stopped;
   if (back_finished) {
     RCLCPP_INFO(getLogger(), "back finished");
@@ -285,49 +441,97 @@ bool StartPlannerModule::hasFinishedBackwardDriving() const
   return back_finished;
 }
 
+/**
+ * @brief 检查是否收到新路由
+ * 
+ * 通过比较当前路由 UUID 和前一路由 UUID 来判断路由是否发生变化
+ * 
+ * @return true 收到新路由，false 路由未变化
+ * 
+ * @note 收到新路由时会重置所有规划状态
+ */
 bool StartPlannerModule::receivedNewRoute() const
 {
   return !planner_data_->prev_route_id ||
          *planner_data_->prev_route_id != planner_data_->route_handler->getRouteUuid();
 }
 
+/**
+ * @brief 判断是否需要进行动态对象碰撞检测
+ * 
+ * 该函数根据多个条件判断是否需要执行碰撞检测：
+ * 1. 如果安全检查被禁用或车辆不是向前驾驶 → 不需要检测
+ * 2. 如果配置为跳过后方车辆检查 → 需要检测
+ * 3. 如果自车正在阻挡后方车辆通过 → 不需要检测（避免误报）
+ * 
+ * @return true 需要进行碰撞检测，false 不需要碰撞检测
+ * 
+ * @note 后方车辆检测的逻辑：如果自车正在阻挡后方车辆，说明自车正在合流，
+ *       此时不应该因为后方车辆而停止起步
+ */
 bool StartPlannerModule::requiresDynamicObjectsCollisionDetection() const
 {
   const auto & safety_params = parameters_->safety_check_params;
   const auto & skip_rear_vehicle_check = parameters_->skip_rear_vehicle_check;
 
-  // Return false and do not perform collision detection if any of the following conditions are
-  // true:
-  // - Safety check is disabled.
-  // - The vehicle is not driving forward.
+  // === 条件1：不需要碰撞检测的情况 ===
+  // - 安全检查被禁用
+  // - 车辆不是向前驾驶（倒车时不检测动态对象）
   if (!safety_params.enable_safety_check || !status_.driving_forward) {
     return false;
   }
 
-  // Return true and always perform collision detection if the following condition is true:
-  // - Rear vehicle check is set to be skipped.
+  // === 条件2：总是需要碰撞检测的情况 ===
+  // - 配置为跳过后方车辆检查（简化逻辑，总是检测）
   if (skip_rear_vehicle_check) {
     return true;
   }
 
+  // === 条件3：检查是否正在阻挡后方车辆 ===
+  // 如果正在阻挡后方车辆通过，则不需要碰撞检测（避免误报）
   return !isPreventingRearVehicleFromPassingThrough();
 }
 
+/**
+ * @brief 检查周围是否没有移动的对象
+ * 
+ * 该函数用于判断起步区域是否安全（没有移动的障碍物），检查流程：
+ * 1. 筛选搜索半径内的动态对象
+ * 2. 按对象类别筛选（车辆、行人等）
+ * 3. 按速度筛选（只保留移动的对象）
+ * 
+ * @return true 周围没有移动对象，false 周围存在移动对象
+ * 
+ * @note 该函数用于判断是否可以开始执行起步动作
+ */
 bool StartPlannerModule::noMovingObjectsAround() const
 {
   auto dynamic_objects = *(planner_data_->dynamic_object);
+  // 筛选：搜索半径内的对象
   utils::path_safety_checker::filterObjectsWithinRadius(
     dynamic_objects, planner_data_->self_odometry->pose.pose.position, parameters_->search_radius);
+  // 筛选：特定类别的对象（车辆、行人等）
   utils::path_safety_checker::filterObjectsByClass(
     dynamic_objects, parameters_->surround_moving_obstacles_type_to_check);
+  // 筛选：速度大于阈值的移动对象
   const auto filtered_objects = utils::path_safety_checker::filterObjectsByVelocity(
     dynamic_objects, parameters_->th_moving_obstacle_velocity, true);
+  
   if (!filtered_objects.objects.empty()) {
     DEBUG_PRINT("Moving objects exist in the safety check area");
   }
   return filtered_objects.objects.empty();
 }
 
+/**
+ * @brief 检查是否与动态对象发生碰撞
+ * 
+ * 该函数通过调用 isSafePath() 来判断规划路径是否与动态对象发生碰撞
+ * 
+ * @return true 存在碰撞，false 不存在碰撞
+ * 
+ * @note TODO(Sugahara): 应该在这个函数中更新路径和预测路径参数，避免使用 mutable
+ */
 bool StartPlannerModule::hasCollisionWithDynamicObjects() const
 {
   // TODO(Sugahara): update path, params for predicted path and so on in this function to avoid
@@ -335,24 +539,42 @@ bool StartPlannerModule::hasCollisionWithDynamicObjects() const
   return !isSafePath();
 }
 
+/**
+ * @brief 判断是否请求执行 StartPlanner 模块
+ * 
+ * 该函数决定 StartPlanner 模块是否应该被激活，判断逻辑：
+ * 1. 如果模块已经在运行 → 继续运行
+ * 2. 如果满足以下任一条件 → 不请求执行：
+ *    - 当前位置已经在车道中心线上（不需要起步）
+ *    - 车辆已经远离原始起点（已经完成起步）
+ *    - 车辆已经到达目标点
+ *    - 车辆正在移动
+ * 3. 如果目标点在自车后方的同一路由段 → 不请求执行（不支持后退到目标点）
+ * 
+ * @return true 请求执行模块，false 不请求执行
+ * 
+ * @note 该函数的关键是 isCurrentPoseOnEgoCenterline()，判断车辆是否需要起步
+ */
 bool StartPlannerModule::isExecutionRequested() const
 {
+  // 如果模块已经在运行，继续执行
   if (isModuleRunning()) {
     return true;
   }
 
-  // Return false and do not request execution if any of the following conditions are true:
-  // - The start pose is on the centerline or on "waypoints" (custom centerline)
-  // - The vehicle has already arrived at the start position planner.
-  // - The vehicle has reached the goal position.
-  // - The vehicle is still moving.
+  // === 不请求执行的条件 ===
+  // - 当前位置在车道中心线上或在"航点"（自定义中心线）上
+  // - 车辆已经到达起始位置规划器（已经远离原始起点）
+  // - 车辆已经到达目标位置
+  // - 车辆仍在移动
   if (
     isCurrentPoseOnEgoCenterline() || isCloseToOriginalStartPose() || hasArrivedAtGoal() ||
     isMoving()) {
     return false;
   }
 
-  // Check if the goal is behind the ego vehicle within the same route segment.
+  // === 检查目标点是否在自车后方（同一路由段） ===
+  // 不支持后退到目标点的起步规划
   if (isGoalBehindOfEgoInSameRouteSegment()) {
     RCLCPP_WARN_THROTTLE(
       getLogger(), *clock_, 5000, "Start plan for a backward goal is not supported now");
@@ -362,20 +584,40 @@ bool StartPlannerModule::isExecutionRequested() const
   return true;
 }
 
+/**
+ * @brief 检查模块是否正在运行
+ * 
+ * @return true 模块正在运行，false 模块未运行
+ */
 bool StartPlannerModule::isModuleRunning() const
 {
   return getCurrentStatus() == ModuleStatus::RUNNING;
 }
 
+/**
+ * @brief 判断当前位置是否在自车中心线上
+ * 
+ * 该函数是判断是否需要 StartPlanner 的关键条件之一：
+ * - 如果车辆已经在车道中心线上 → 不需要起步规划，可以直接使用 Lane Following
+ * - 如果车辆偏离中心线（例如路边停车、停车位） → 需要起步规划
+ * 
+ * @return true 在中心线上（横向距离小于阈值），false 不在中心线上
+ * 
+ * @note 阈值由参数 th_distance_to_middle_of_the_road 控制（默认 0.5m）
+ * @note 这是 StartPlanner 激活条件的核心判断
+ */
 bool StartPlannerModule::isCurrentPoseOnEgoCenterline() const
 {
   const auto & lanelet_map_ptr = planner_data_->route_handler->getLaneletMapPtr();
   const Pose & current_pose = planner_data_->self_odometry->pose.pose;
   const lanelet::ConstLanelets current_lanes = utils::getCurrentLanes(planner_data_);
+  
+  // 计算当前位置到车道中心线的横向距离
   const double lateral_distance_to_center_lane =
     lanelet::utils::getArcCoordinatesOnEgoCenterline(current_lanes, current_pose, lanelet_map_ptr)
       .distance;
 
+  // 如果横向距离小于阈值，认为在中心线上
   return std::abs(lateral_distance_to_center_lane) < parameters_->th_distance_to_middle_of_the_road;
 }
 
@@ -607,20 +849,39 @@ bool StartPlannerModule::isStopped()
     });
 }
 
+/**
+ * @brief 判断模块是否准备好执行（安全性检查）
+ * 
+ * 该函数评估当前情况是否安全，可以开始执行起步动作。
+ * 以下情况被认为是不安全的：
+ * 1. 未找到起步路径
+ * 2. 周围有移动的对象
+ * 3. 正在等待批准且与动态对象存在碰撞风险
+ * 
+ * @return true 准备好执行（安全），false 未准备好（不安全）
+ * 
+ * @note 如果不安全，会设置停止姿态（stop_pose_）
+ */
 bool StartPlannerModule::isExecutionReady() const
 {
-  // Evaluate safety. The situation is not safe if any of the following conditions are met:
-  // 1. pull out path has not been found
-  // 2. there is a moving objects around ego
-  // 3. waiting for approval and there is a collision with dynamic objects
+  // === 评估安全性 ===
+  // 如果满足以下任一条件，则认为情况不安全：
+  // 1. 未找到起步路径
+  // 2. 周围有移动的对象
+  // 3. 等待批准时与动态对象存在碰撞
 
   const bool is_safe = [&]() -> bool {
+    // 条件1：如果未找到起步路径，不安全
     if (!status_.found_pull_out_path) return false;
+    // 如果不是等待批准状态，直接认为安全（已经被批准执行）
     if (!isWaitingApproval()) return true;
+    // 条件2：如果周围有移动对象，不安全
     if (!noMovingObjectsAround()) return false;
+    // 条件3：如果需要碰撞检测且存在碰撞，不安全
     return !(requiresDynamicObjectsCollisionDetection() && hasCollisionWithDynamicObjects());
   }();
 
+  // 如果不安全，记录停止姿态
   if (!is_safe) {
     stop_pose_ = PoseWithDetail(planner_data_->self_odometry->pose.pose);
   }
@@ -628,11 +889,28 @@ bool StartPlannerModule::isExecutionReady() const
   return is_safe;
 }
 
+/**
+ * @brief 判断模块是否可以转换到成功状态（完成起步）
+ * 
+ * 该函数判断起步动作是否完成，可以切换到下一个场景模块。
+ * 不同规划器的完成条件不同：
+ * 
+ * Freespace Planner:
+ * - 到达目标位置 → 可以转换
+ * - 未到达目标位置 → 不可以转换
+ * 
+ * 其他规划器（Shift/Geometric）:
+ * - 车辆正在倒车 → 不可以转换（需要先完成倒车）
+ * - 未找到安全路径 → 不可以转换（需要嵌入停止点并继续运行）
+ * - 到达起步路径终点 → 可以转换
+ * 
+ * @return true 可以转换到成功状态，false 还需要继续执行
+ */
 bool StartPlannerModule::canTransitSuccessState()
 {
-  // Freespace Planner:
-  // - Can transit to success if the goal position is reached.
-  // - Cannot transit to success if the goal position is not reached.
+  // === Freespace Planner 的完成条件 ===
+  // - 可以转换：到达目标位置
+  // - 不可以转换：未到达目标位置
   if (status_.planner_type == PlannerType::FREESPACE) {
     if (hasReachedFreespaceEnd()) {
       RCLCPP_DEBUG(
@@ -642,13 +920,11 @@ bool StartPlannerModule::canTransitSuccessState()
     return false;
   }
 
-  // Other Planners:
-  // - Cannot transit to success if the vehicle is driving in reverse.
-  // - Cannot transit to success if a safe path cannot be found due to:
-  //   - Insufficient margin against static objects.
-  //   - No path found that stays within the lane.
-  //   In such cases, a stop point needs to be embedded and keep running start_planner.
-  // - Can transit to success if the end point of the pullout path is reached.
+  // === 其他规划器（Shift/Geometric）的完成条件 ===
+  // - 不可以转换：车辆正在倒车
+  // - 不可以转换：无法找到安全路径（对静态对象间隙不足或路径超出车道）
+  //   在这种情况下，需要嵌入停止点并继续运行 start_planner
+  // - 可以转换：到达起步路径的终点
   if (!status_.driving_forward || !status_.found_pull_out_path) {
     return false;
   }
@@ -661,6 +937,24 @@ bool StartPlannerModule::canTransitSuccessState()
   return false;
 }
 
+/**
+ * @brief 主规划函数 - 生成起步路径规划输出
+ * 
+ * 该函数是 StartPlanner 模块的核心规划方法，负责：
+ * 1. 处理等待批准状态的清理
+ * 2. 根据不同情况生成合适的路径：
+ *    - 停止路径（未找到安全路径时）
+ *    - 后退路径（需要倒车时）
+ *    - 起步路径（正常起步）
+ *    - 带停止点的路径（检测到动态障碍物时）
+ * 3. 设置可行驶区域和转向信号
+ * 4. 更新 RTC 状态
+ * 
+ * @return BehaviorModuleOutput 包含规划路径、参考路径、转向信号等信息的输出结构体
+ * 
+ * @note 该函数仅在模块被激活（isActivated()）且不需要提前准备转向灯时被调用
+ * @see run() 方法中的调用逻辑
+ */
 BehaviorModuleOutput StartPlannerModule::plan()
 {
   autoware_utils::ScopedTimeTrack st(__func__, *time_keeper_);
@@ -769,6 +1063,16 @@ CandidateOutput StartPlannerModule::planCandidate() const
   return CandidateOutput{};
 }
 
+/**
+ * @brief 初始化安全检查参数
+ * 
+ * 该函数从 StartPlanner 参数中提取并初始化三类安全检查参数：
+ * 1. 自车预测路径参数
+ * 2. 安全检查参数（RSS 参数等）
+ * 3. 对象过滤参数
+ * 
+ * @note 在模块进入和退出时调用
+ */
 void StartPlannerModule::initializeSafetyCheckParameters()
 {
   updateEgoPredictedPathParams(ego_predicted_path_params_, parameters_);
@@ -776,9 +1080,20 @@ void StartPlannerModule::initializeSafetyCheckParameters()
   updateObjectsFilteringParams(objects_filtering_params_, parameters_);
 }
 
+/**
+ * @brief 获取完整的起步路径
+ * 
+ * 该函数组合所有部分路径（partial_paths）生成完整的起步路径：
+ * - 如果正在前进：只返回起步路径（不包含倒车部分）
+ * - 如果正在倒车：返回倒车路径 + 起步路径的组合
+ * 
+ * @return PathWithLaneId 完整的起步路径
+ * 
+ * @note 用于可视化和调试（path_candidate_）
+ */
 PathWithLaneId StartPlannerModule::getFullPath() const
 {
-  // combine partial pull out path
+  // === 组合所有部分路径 ===
   PathWithLaneId pull_out_path;
   for (const auto & partial_path : status_.pull_out_path.partial_paths) {
     pull_out_path.points.insert(
@@ -786,23 +1101,40 @@ PathWithLaneId StartPlannerModule::getFullPath() const
   }
 
   if (status_.driving_forward) {
-    // not need backward path or finish it
+    // 前进模式：不需要倒车路径或已经完成倒车
     return pull_out_path;
   }
 
-  // concat back_path and pull_out_path and
+  // === 倒车模式：组合倒车路径和起步路径 ===
   auto full_path = status_.backward_path;
   full_path.points.insert(
     full_path.points.end(), pull_out_path.points.begin(), pull_out_path.points.end());
   return full_path;
 }
 
+/**
+ * @brief 等待批准时的规划函数 - 生成停止路径并等待批准
+ * 
+ * 该函数在模块未被激活时调用，负责：
+ * 1. 更新起步状态（寻找可用的起步路径）
+ * 2. 如果未找到安全路径，生成停止路径
+ * 3. 如果找到路径，生成停止路径并等待批准
+ * 4. 设置可行驶区域和转向信号
+ * 5. 更新 RTC 状态和规划因子
+ * 
+ * @return BehaviorModuleOutput 包含停止路径（速度为0）、参考路径、转向信号等
+ * 
+ * @note 该函数生成的路径速度都被设置为 0，车辆会停在原地等待批准
+ * @note path_candidate_ 包含完整的起步路径（供可视化）
+ */
 BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
 {
   autoware_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
+  // 更新起步状态（尝试生成起步路径）
   updatePullOutStatus();
 
+  // === 未找到安全起步路径 ===
   if (!status_.found_pull_out_path) {
     RCLCPP_WARN_THROTTLE(
       getLogger(), *clock_, 5000, "Not found safe pull out path, publish stop path");
@@ -813,22 +1145,32 @@ BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
     return output;
   }
 
+  // === 找到起步路径，等待批准 ===
   waitApproval();
 
+  // === 计算扩展车道范围 ===
   const double backward_path_length =
     planner_data_->parameters.backward_path_length + parameters_->max_back_distance;
   const auto current_lanes = utils::getExtendedCurrentLanes(
     planner_data_, backward_path_length, std::numeric_limits<double>::max(),
     /*forward_only_in_route*/ true);
 
+  // === 生成停止路径 ===
+  // 根据当前驾驶方向选择路径（前进或倒车）
   auto stop_path = status_.driving_forward ? getCurrentPath() : status_.backward_path;
   const auto drivable_lanes = generateDrivableLanes(stop_path);
   const auto & dp = planner_data_->drivable_area_expansion_parameters;
   const auto expanded_lanes = utils::expandLanelets(
     drivable_lanes, dp.drivable_area_left_bound_offset, dp.drivable_area_right_bound_offset,
     dp.drivable_area_types_to_skip);
+  
+  // === 将所有路径点的速度设置为 0 ===
+  // 这是等待批准时的关键操作：生成停止路径
   for (auto & p : stop_path.points) {
     p.point.longitudinal_velocity_mps = 0.0;
+    RCLCPP_INFO_THROTTLE(
+      getLogger(), *clock_, 1000, "[VEL_DEBUG][START_PLANNER][PLAN_WAITING_APPROVAL] Set point velocity to 0.0"
+    );
   }
 
   BehaviorModuleOutput output;
@@ -872,17 +1214,35 @@ BehaviorModuleOutput StartPlannerModule::planWaitingApproval()
   return output;
 }
 
+/**
+ * @brief 重置起步状态
+ * 
+ * 将 status_ 重置为初始状态，通常在收到新路由时调用
+ */
 void StartPlannerModule::resetStatus()
 {
   status_ = PullOutStatus{};
 }
 
+/**
+ * @brief 递增路径索引
+ * 
+ * 将当前路径索引递增1，用于切换到下一个部分路径（partial_path）
+ * 索引最大不超过部分路径数组的大小-1
+ */
 void StartPlannerModule::incrementPathIndex()
 {
   status_.current_path_idx =
     std::min(status_.current_path_idx + 1, status_.pull_out_path.partial_paths.size() - 1);
 }
 
+/**
+ * @brief 获取当前路径
+ * 
+ * 根据当前路径索引返回对应的部分路径
+ * 
+ * @return PathWithLaneId 当前部分路径，如果索引越界则返回空路径
+ */
 PathWithLaneId StartPlannerModule::getCurrentPath() const
 {
   if (status_.pull_out_path.partial_paths.size() <= status_.current_path_idx) {
@@ -891,6 +1251,23 @@ PathWithLaneId StartPlannerModule::getCurrentPath() const
   return status_.pull_out_path.partial_paths.at(status_.current_path_idx);
 }
 
+/**
+ * @brief 按优先级规划起步路径
+ * 
+ * 该函数是起步路径生成的核心，负责：
+ * 1. 根据搜索优先级确定规划器和起始姿态的尝试顺序
+ * 2. 遍历不同的碰撞检查边界
+ * 3. 遍历不同的起始姿态候选和规划器组合
+ * 4. 找到第一个可行的路径后立即返回
+ * 
+ * @param start_pose_candidates 起始姿态候选列表（倒车搜索生成的候选位置）
+ * @param refined_start_pose 精炼后的起始姿态（在车道上的位置）
+ * @param goal_pose 目标姿态
+ * @param search_priority 搜索优先级（"efficient_path" 或 "short_back_distance"）
+ * 
+ * @note "efficient_path": 优先尝试不同规划器，再尝试不同起点（优先高效路径）
+ * @note "short_back_distance": 优先尝试不同起点，再尝试不同规划器（优先短倒车距离）
+ */
 void StartPlannerModule::planWithPriority(
   const std::vector<Pose> & start_pose_candidates, const Pose & refined_start_pose,
   const Pose & goal_pose, const std::string & search_priority)
@@ -899,6 +1276,7 @@ void StartPlannerModule::planWithPriority(
 
   if (start_pose_candidates.empty()) return;
 
+  // === 确定搜索优先级顺序 ===
   const PriorityOrder order_priority =
     determinePriorityOrder(search_priority, start_pose_candidates.size());
 
@@ -906,11 +1284,16 @@ void StartPlannerModule::planWithPriority(
   {  // create a scope for the scoped time track
     autoware_utils::ScopedTimeTrack st2("findPullOutPaths", *time_keeper_);
 
+    // === 多层循环搜索可行路径 ===
+    // 外层：碰撞检查边界（从严格到宽松）
+    // 内层：按优先级顺序尝试（规划器 + 起始姿态组合）
     for (const auto & collision_check_margin : parameters_->collision_check_margins) {
       for (const auto & [index, planner] : order_priority) {
+        // 尝试生成起步路径
         if (findPullOutPath(
               start_pose_candidates[index], planner, refined_start_pose, goal_pose,
               collision_check_margin, debug_data_vector)) {
+          // 找到可行路径，记录调试信息并返回
           debug_data_.selected_start_pose_candidate_index = index;
           debug_data_.margin_for_start_pose_candidate = collision_check_margin;
           set_planner_evaluation_table(debug_data_vector);
@@ -919,10 +1302,24 @@ void StartPlannerModule::planWithPriority(
       }
     }
   }
+  // === 未找到可行路径 ===
   set_planner_evaluation_table(debug_data_vector);
   updateStatusIfNoSafePathFound();
 }
 
+/**
+ * @brief 确定搜索优先级顺序
+ * 
+ * 根据搜索优先级参数，决定规划器和起始姿态的尝试顺序：
+ * - "efficient_path": 先遍历所有规划器，再遍历起始姿态
+ *   （优先找到最高效的规划方式）
+ * - "short_back_distance": 先遍历起始姿态，再遍历规划器
+ *   （优先减少倒车距离）
+ * 
+ * @param search_priority 搜索优先级字符串
+ * @param start_pose_candidates_num 起始姿态候选数量
+ * @return PriorityOrder 优先级顺序列表（索引 + 规划器对）
+ */
 PriorityOrder StartPlannerModule::determinePriorityOrder(
   const std::string & search_priority, const size_t start_pose_candidates_num)
 {
@@ -930,12 +1327,14 @@ PriorityOrder StartPlannerModule::determinePriorityOrder(
 
   PriorityOrder order_priority;
   if (search_priority == "efficient_path") {
+    // 优先高效路径：先遍历规划器，再遍历起始位置
     for (const auto & planner : start_planners_) {
       for (size_t i = 0; i < start_pose_candidates_num; i++) {
         order_priority.emplace_back(i, planner);
       }
     }
   } else if (search_priority == "short_back_distance") {
+    // 优先短倒车距离：先遍历起始位置，再遍历规划器
     for (size_t i = 0; i < start_pose_candidates_num; i++) {
       for (const auto & planner : start_planners_) {
         order_priority.emplace_back(i, planner);
@@ -948,17 +1347,35 @@ PriorityOrder StartPlannerModule::determinePriorityOrder(
   return order_priority;
 }
 
+/**
+ * @brief 尝试生成起步路径
+ * 
+ * 该函数尝试使用指定的规划器从给定的起始姿态生成到目标姿态的路径：
+ * 1. 判断是否需要倒车（起始候选位置和精炼位置的距离）
+ * 2. 调用规划器生成路径
+ * 3. 根据是否需要倒车更新状态
+ * 
+ * @param start_pose_candidate 起始姿态候选
+ * @param planner 使用的规划器（Shift/Geometric）
+ * @param refined_start_pose 精炼后的起始姿态
+ * @param goal_pose 目标姿态
+ * @param collision_check_margin 碰撞检查边界
+ * @param debug_data_vector 调试数据向量（用于记录规划尝试信息）
+ * @return true 成功生成路径，false 未能生成路径
+ */
 bool StartPlannerModule::findPullOutPath(
   const Pose & start_pose_candidate, const std::shared_ptr<PullOutPlannerBase> & planner,
   const Pose & refined_start_pose, const Pose & goal_pose, const double collision_check_margin,
   std::vector<PlannerDebugData> & debug_data_vector)
 {
-  // if start_pose_candidate is far from refined_start_pose, backward driving is necessary
+  // === 判断是否需要倒车 ===
+  // 如果起始候选姿态距离精炼姿态很近，不需要倒车
   constexpr double epsilon = 0.01;
   const double backwards_distance =
     autoware_utils::calc_distance2d(start_pose_candidate, refined_start_pose);
   const bool backward_is_unnecessary = backwards_distance < epsilon;
 
+  // === 设置碰撞检查边界并尝试生成路径 ===
   planner->setCollisionCheckMargin(collision_check_margin);
   PlannerDebugData debug_data{
     planner->getPlannerType(), backwards_distance, collision_check_margin, {}};
@@ -966,15 +1383,21 @@ bool StartPlannerModule::findPullOutPath(
   const auto pull_out_path =
     planner->plan(start_pose_candidate, goal_pose, planner_data_, debug_data);
   debug_data_vector.push_back(debug_data);
-  // If no path is found, return false
+  
+  // === 检查是否成功生成路径 ===
+  // 如果未找到路径，返回 false
   if (!pull_out_path) {
     return false;
   }
+  
+  // === 更新状态 ===
   if (backward_is_unnecessary) {
+    // 不需要倒车：直接使用当前路径，设置为前进模式
     updateStatusWithCurrentPath(*pull_out_path, start_pose_candidate, planner->getPlannerType());
     return true;
   }
 
+  // 需要倒车：设置为倒车模式
   updateStatusWithNextPath(*pull_out_path, start_pose_candidate, planner->getPlannerType());
 
   return true;
@@ -1013,17 +1436,32 @@ void StartPlannerModule::updateStatusIfNoSafePathFound()
   }
 }
 
+/**
+ * @brief 生成停止路径
+ * 
+ * 该函数生成一个短的停止路径（速度为0），用于以下情况：
+ * 1. 未找到安全的起步路径时
+ * 2. 等待批准时
+ * 
+ * 路径包含两个点：
+ * - 当前位置
+ * - 前方1米的位置
+ * 
+ * 两个点的速度都设置为0，车辆会停在原地
+ * 
+ * @return PathWithLaneId 包含两个点的停止路径，速度为0
+ */
 PathWithLaneId StartPlannerModule::generateStopPath() const
 {
   const auto & current_pose = planner_data_->self_odometry->pose.pose;
-  constexpr double dummy_path_distance = 1.0;
+  constexpr double dummy_path_distance = 1.0;  // 前方1米作为第二个点
   const auto moved_pose = calc_offset_pose(current_pose, dummy_path_distance, 0, 0);
 
-  // convert Pose to PathPointWithLaneId with 0 velocity.
+  // === 将 Pose 转换为 PathPointWithLaneId（速度为0） ===
   auto toPathPointWithLaneId = [this](const Pose & pose) {
     PathPointWithLaneId p{};
     p.point.pose = pose;
-    p.point.longitudinal_velocity_mps = 0.0;
+    p.point.longitudinal_velocity_mps = 0.0;  // 关键：速度设置为0
     const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
       planner_data_,
       planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
@@ -1033,6 +1471,7 @@ PathWithLaneId StartPlannerModule::generateStopPath() const
     return p;
   };
 
+  // === 构建停止路径（两个点） ===
   PathWithLaneId path{};
   path.points.push_back(toPathPointWithLaneId(current_pose));
   path.points.push_back(toPathPointWithLaneId(moved_pose));
@@ -1095,17 +1534,31 @@ std::vector<DrivableLanes> StartPlannerModule::generateDrivableLanes(
   return drivable_lanes;
 }
 
+/**
+ * @brief 更新起步状态（生成起步路径）
+ * 
+ * 该函数是起步路径生成的入口，负责：
+ * 1. 防抖处理（避免频繁更新导致抖动）
+ * 2. 计算精炼后的起始姿态（将当前位置投影到车道上）
+ * 3. 搜索起始姿态候选（向后搜索可能的起步位置）
+ * 4. 按优先级生成起步路径
+ * 5. 生成倒车路径（如果需要）
+ * 
+ * @note 该函数在 planWaitingApproval() 中被调用
+ * @note 防抖机制：在收到新路由之前，限制更新频率（避免在倒车和起步之间频繁切换）
+ */
 void StartPlannerModule::updatePullOutStatus()
 {
   autoware_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
-  // skip updating if enough time has not passed for preventing chattering between back and
-  // start_planner
+  // === 防抖处理：避免在倒车和起步规划之间频繁切换 ===
+  // 如果没有收到新路由，限制更新频率
   if (!receivedNewRoute()) {
     if (!last_pull_out_start_update_time_) {
       last_pull_out_start_update_time_ = std::make_unique<rclcpp::Time>(clock_->now());
     }
     const auto elapsed_time = (clock_->now() - *last_pull_out_start_update_time_).seconds();
+    // 如果距离上次更新时间不足，跳过本次更新
     if (elapsed_time < parameters_->backward_path_update_duration) {
       return;
     }
@@ -1116,36 +1569,45 @@ void StartPlannerModule::updatePullOutStatus()
   const auto & current_pose = planner_data_->self_odometry->pose.pose;
   const auto & goal_pose = planner_data_->route_handler->getGoalPose();
 
-  // refine start pose with pull out lanes.
-  // 1) backward driving is not allowed: use refined pose just as start pose.
-  // 2) backward driving is allowed: use refined pose to check if backward driving is needed.
+  // === 精炼起始姿态（投影到车道上） ===
+  // 使用起步车道计算精炼后的起始姿态：
+  // 1) 不允许倒车：直接使用精炼姿态作为起始姿态
+  // 2) 允许倒车：使用精炼姿态检查是否需要倒车
   const PathWithLaneId start_pose_candidates_path = calcBackwardPathFromStartPose();
   const auto refined_start_pose = calcLongitudinalOffsetPose(
     start_pose_candidates_path.points, planner_data_->self_odometry->pose.pose.position, 0.0);
   if (!refined_start_pose) return;
 
-  // search pull out start candidates backward
+  // === 搜索起始姿态候选（向后搜索） ===
   const std::vector<Pose> start_pose_candidates = std::invoke([&]() -> std::vector<Pose> {
     if (parameters_->enable_back) {
+      // 如果允许倒车，向后搜索起始姿态候选
       return searchPullOutStartPoseCandidates(start_pose_candidates_path);
     }
+    // 如果不允许倒车，只使用精炼后的起始姿态
     return {*refined_start_pose};
   });
 
+  // === 按优先级生成起步路径 ===
+  // 只有在倒车未完成时才重新规划
   if (!status_.backward_driving_complete) {
     planWithPriority(
       start_pose_candidates, *refined_start_pose, goal_pose, parameters_->search_priority);
   }
 
+  // === 记录调试数据 ===
   debug_data_.refined_start_pose = *refined_start_pose;
   debug_data_.start_pose_candidates = start_pose_candidates;
   const auto pull_out_lanes = start_planner_utils::getPullOutLanes(
     planner_data_, planner_data_->parameters.backward_path_length + parameters_->max_back_distance);
 
+  // === 检查倒车是否完成 ===
   if (hasFinishedBackwardDriving()) {
     updateStatusAfterBackwardDriving();
     return;
   }
+  
+  // === 生成倒车路径 ===
   status_.backward_path = start_planner_utils::getBackwardPath(
     *route_handler, pull_out_lanes, current_pose, status_.pull_out_start_pose,
     parameters_->backward_velocity);
@@ -1412,12 +1874,28 @@ TurnSignalInfo StartPlannerModule::calcTurnSignalInfo()
   return output_turn_signal_info;
 }
 
+/**
+ * @brief 检查规划路径是否安全（RSS 安全检查）
+ * 
+ * 该函数执行详细的路径安全性评估，包括：
+ * 1. 生成自车预测路径
+ * 2. 筛选需要检查的动态对象（按速度、位置、类别）
+ * 3. 识别当前车道和路肩车道上的目标对象
+ * 4. 使用 RSS (Responsibility-Sensitive Safety) 模型进行安全性检查
+ * 
+ * @return true 路径安全，false 路径不安全（存在碰撞风险）
+ * 
+ * @note RSS 是一种安全模型，考虑反应时间、制动距离等因素
+ * @note TODO(Sugahara): 应该对倒车路径也进行安全检查
+ * @note TODO(Sugahara): 应该正确判断 is_object_front（对象是否在前方）
+ */
 bool StartPlannerModule::isSafePath() const
 {
   autoware_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
   // TODO(Sugahara): should safety check for backward path
 
+  // === 获取当前路径 ===
   const auto pull_out_path = getCurrentPath();
   if (pull_out_path.points.empty()) {
     return false;
@@ -1431,12 +1909,14 @@ bool StartPlannerModule::isSafePath() const
   const double backward_path_length =
     planner_data_->parameters.backward_path_length + parameters_->max_back_distance;
 
+  // === 获取扩展的当前车道 ===
   const auto current_lanes = utils::getExtendedCurrentLanes(
     planner_data_, backward_path_length, std::numeric_limits<double>::max(),
     /*forward_only_in_route*/ true);
 
-  // for ego predicted path
+  // === 生成自车预测路径 ===
   const size_t ego_seg_idx = planner_data_->findEgoSegmentIndex(pull_out_path.points);
+  // 获取终端速度和加速度（用于预测路径）
   const std::pair<double, double> terminal_velocity_and_accel =
     utils::parking_departure::getPairsTerminalVelocityAndAccel(
       status_.pull_out_path.pairs_terminal_velocity_and_accel, status_.current_path_idx);
@@ -1444,33 +1924,39 @@ bool StartPlannerModule::isSafePath() const
     getLogger(), "pairs_terminal_velocity_and_accel for start_planner: %f, %f",
     terminal_velocity_and_accel.first, terminal_velocity_and_accel.second);
   RCLCPP_DEBUG(getLogger(), "current_path_idx %ld", status_.current_path_idx);
+  // 更新路径属性（速度、加速度）
   utils::parking_departure::updatePathProperty(
     ego_predicted_path_params_, terminal_velocity_and_accel);
   // TODO(Sugahara): shoule judge is_object_front properly
-  const bool is_object_front = true;
+  const bool is_object_front = true;  // 假设对象在前方
   const bool limit_to_max_velocity = true;
   const auto ego_predicted_path =
     autoware::behavior_path_planner::utils::path_safety_checker::createPredictedPath(
       ego_predicted_path_params_, pull_out_path.points, current_pose, current_velocity, ego_seg_idx,
       is_object_front, limit_to_max_velocity);
 
-  // filtering objects with velocity, position and class
+  // === 筛选动态对象 ===
+  // 按速度、位置和类别筛选对象
   const auto filtered_objects = utils::path_safety_checker::filterObjects(
     dynamic_object, route_handler, current_lanes, current_pose.position, objects_filtering_params_);
 
-  // filtering objects based on the current position's lane
+  // === 识别车道上的目标对象 ===
+  // 基于当前位置的车道筛选对象
   const auto target_objects_on_lane = utils::path_safety_checker::createTargetObjectsOnLane(
     current_lanes, route_handler, filtered_objects, objects_filtering_params_);
 
+  // === 迟滞因子（避免频繁切换安全/不安全状态） ===
   const double hysteresis_factor =
     status_.is_safe_dynamic_objects ? 1.0 : safety_check_params_->hysteresis_factor_expand_rate;
 
-  // debug
+  // === 记录调试数据 ===
   {
     debug_data_.filtered_objects = filtered_objects;
     debug_data_.target_objects_on_lane = target_objects_on_lane;
     debug_data_.ego_predicted_path = ego_predicted_path;
   }
+  
+  // === 合并当前车道和路肩车道的目标对象 ===
   std::vector<ExtendedPredictedObject> merged_target_object;
   merged_target_object.reserve(
     target_objects_on_lane.on_current_lane.size() + target_objects_on_lane.on_shoulder_lane.size());
@@ -1481,6 +1967,7 @@ bool StartPlannerModule::isSafePath() const
     merged_target_object.end(), target_objects_on_lane.on_shoulder_lane.begin(),
     target_objects_on_lane.on_shoulder_lane.end());
 
+  // === 使用 RSS 模型进行安全性检查 ===
   return autoware::behavior_path_planner::utils::path_safety_checker::checkSafetyWithRSS(
     pull_out_path, ego_predicted_path, merged_target_object, debug_data_.collision_check,
     planner_data_->parameters, safety_check_params_->rss_params,

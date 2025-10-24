@@ -30,6 +30,11 @@ namespace autoware::behavior_path_planner
 using autoware::behavior_path_planner::lane_change::LCParamPtr;
 using autoware::route_handler::Direction;
 
+/**
+ * @brief lane_change模块管理器
+ * 
+ * 负责管理变道模块的实例创建、参数初始化和更新。
+ */
 class LaneChangeModuleManager : public SceneModuleManagerInterface
 {
 public:
@@ -39,8 +44,16 @@ public:
   {
   }
 
+  /**
+   * @brief 初始化模块
+   * @param node ROS2节点指针
+   */
   void init(rclcpp::Node * node) override;
 
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override;
 
   void updateModuleParams(const std::vector<rclcpp::Parameter> & parameters) override;

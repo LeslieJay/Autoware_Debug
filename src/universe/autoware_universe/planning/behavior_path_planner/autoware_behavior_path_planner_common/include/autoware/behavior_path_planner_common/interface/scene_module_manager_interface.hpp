@@ -44,6 +44,7 @@ using unique_identifier_msgs::msg::UUID;
 using SceneModulePtr = std::shared_ptr<SceneModuleInterface>;
 using SceneModuleObserver = std::weak_ptr<SceneModuleInterface>;
 
+/// @brief SceneModuleManagerInterface类
 class SceneModuleManagerInterface
 {
 public:

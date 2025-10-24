@@ -29,6 +29,11 @@ using autoware::behavior_path_planner::LaneChangeModuleManager;
 using autoware::behavior_path_planner::LaneChangeModuleType;
 using autoware::behavior_path_planner::SceneModuleInterface;
 
+/**
+ * @brief external_request_lane_change模块管理器
+ * 
+ * 负责管理外部请求变道模块的实例创建、参数初始化和更新。
+ */
 class ExternalRequestLaneChangeRightModuleManager : public LaneChangeModuleManager
 {
 public:
@@ -38,6 +43,10 @@ public:
       LaneChangeModuleType::EXTERNAL_REQUEST)
   {
   }
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override;
 };
 
@@ -51,6 +60,10 @@ public:
       LaneChangeModuleType::EXTERNAL_REQUEST)
   {
   }
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override;
 };
 }  // namespace autoware::behavior_path_planner

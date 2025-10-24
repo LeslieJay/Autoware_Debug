@@ -27,6 +27,11 @@
 namespace autoware::behavior_path_planner
 {
 
+/**
+ * @brief goal_planner模块管理器
+ * 
+ * 负责管理目标点规划模块的实例创建、参数初始化和更新。
+ */
 class GoalPlannerModuleManager : public SceneModuleManagerInterface
 {
 public:
@@ -36,8 +41,16 @@ public:
 public:
   GoalPlannerModuleManager() : SceneModuleManagerInterface{"goal_planner"} {}
 
+  /**
+   * @brief 初始化模块
+   * @param node ROS2节点指针
+   */
   void init(rclcpp::Node * node) override;
 
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 场景模块接口的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override;
 
   void updateModuleParams(const std::vector<rclcpp::Parameter> & parameters) override;

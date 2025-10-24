@@ -38,12 +38,14 @@
 
 namespace
 {
+/// @brief 检查值是否在向量中
 template <typename T>
 bool isInVector(const T & val, const std::vector<T> & vec)
 {
   return std::find(vec.begin(), vec.end(), val) != vec.end();
 }
 
+/// @brief 获取unordered_map的所有键
 template <typename T, typename S>
 std::vector<T> getAllKeys(const std::unordered_map<T, S> & map)
 {
@@ -61,6 +63,11 @@ using autoware_internal_planning_msgs::msg::PathWithLaneId;
 using autoware_perception_msgs::msg::PredictedPath;
 using autoware_utils::Polygon2d;
 
+/**
+ * @brief 最小最大值结构体
+ * 
+ * 用于存储避障时的纵向/横向偏移量范围
+ */
 struct MinMaxValue
 {
   double min_value{0.0};
@@ -75,21 +82,26 @@ struct MinMaxValue
   void swap() { std::swap(min_value, max_value); }
 };
 
+/**
+ * @brief 多边形生成方法枚举
+ */
 enum class PolygonGenerationMethod {
-  EGO_PATH_BASE = 0,
-  OBJECT_PATH_BASE,
+  EGO_PATH_BASE = 0,     ///< 基于自车路径生成避障多边形
+  OBJECT_PATH_BASE,      ///< 基于对象路径生成避障多边形
 };
 
+/**
+ * @brief 对象类型枚举
+ */
 enum class ObjectType {
-  OUT_OF_SCOPE = 0,  // The module do not care about this type of objects.
-  REGULATED,    // The module assumes this type of objects move in parallel against lanes. Drivable
-                // areas are divided proportionately with the ego. Typically, cars, bus and trucks
-                // are classified to this type.
-  UNREGULATED,  // The module does not assume the objects move in parallel against lanes and
-                // assigns drivable area with priority to ego. Typically, pedestrians should be
-                // classified to this type.
+  OUT_OF_SCOPE = 0,  ///< 模块不关心此类对象
+  REGULATED,    ///< 假设对象沿车道平行移动(如汽车、卡车、公交车)
+  UNREGULATED,  ///< 不假设对象沿车道平行移动，优先为自车分配可行驶区域(如行人)
 };
 
+/**
+ * @brief 动态避障参数结构体
+ */
 struct DynamicAvoidanceParameters
 {
   // common
@@ -159,17 +171,29 @@ struct DynamicAvoidanceParameters
   double end_duration_to_avoid_oncoming_object{0.0};
 };
 
+/// @brief 碰撞时间段结构体
 struct TimeWhileCollision
 {
-  double time_to_start_collision;
-  double time_to_end_collision;
+  double time_to_start_collision;  ///< 开始碰撞的时间
+  double time_to_end_collision;    ///< 结束碰撞的时间
 };
 
+/// @brief 横向可行路径结构体
 struct LatFeasiblePaths
 {
-  std::vector<geometry_msgs::msg::Point> left_path;
-  std::vector<geometry_msgs::msg::Point> right_path;
+  std::vector<geometry_msgs::msg::Point> left_path;   ///< 左侧可行路径
+  std::vector<geometry_msgs::msg::Point> right_path;  ///< 右侧可行路径
 };
+
+/**
+ * @brief 动态障碍物避障模块
+ * 
+ * 该模块处理运动中的障碍物避让，包括：
+ * - 检测切入、切出和横穿的动态对象
+ * - 计算避障所需的横向偏移
+ * - 生成扩展的可行驶区域以避让动态障碍物
+ * - 管理目标对象的状态和历史
+ */
 class DynamicObstacleAvoidanceModule : public SceneModuleInterface
 {
 public:

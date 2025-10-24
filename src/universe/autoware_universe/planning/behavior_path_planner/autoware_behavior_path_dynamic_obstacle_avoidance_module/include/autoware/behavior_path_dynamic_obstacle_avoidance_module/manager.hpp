@@ -28,6 +28,15 @@
 namespace autoware::behavior_path_planner
 {
 
+/**
+ * @brief 动态障碍物避障模块管理器
+ * 
+ * 该模块负责避让运动中的障碍物,包括:
+ * - 切入车辆(从相邻车道切入自车道的车辆)
+ * - 切出车辆(从自车道切出到相邻车道的车辆)
+ * - 横穿对象(行人、自行车等横穿道路的对象)
+ * - 迎面驶来的车辆
+ */
 class DynamicObstacleAvoidanceModuleManager : public SceneModuleManagerInterface
 {
 public:
@@ -36,8 +45,16 @@ public:
   {
   }
 
+  /**
+   * @brief 初始化模块,加载动态避障参数
+   * @param node ROS2节点指针
+   */
   void init(rclcpp::Node * node) override;
 
+  /**
+   * @brief 创建新的场景模块实例
+   * @return 动态障碍物避障模块的唯一指针
+   */
   std::unique_ptr<SceneModuleInterface> createNewSceneModuleInstance() override
   {
     return std::make_unique<DynamicObstacleAvoidanceModule>(
@@ -45,10 +62,14 @@ public:
       objects_of_interest_marker_interface_ptr_map_, planning_factor_interface_);
   }
 
+  /**
+   * @brief 更新模块参数
+   * @param parameters 参数列表
+   */
   void updateModuleParams(const std::vector<rclcpp::Parameter> & parameters) override;
 
 private:
-  std::shared_ptr<DynamicAvoidanceParameters> parameters_;
+  std::shared_ptr<DynamicAvoidanceParameters> parameters_;  ///< 动态避障参数
 };
 
 }  // namespace autoware::behavior_path_planner

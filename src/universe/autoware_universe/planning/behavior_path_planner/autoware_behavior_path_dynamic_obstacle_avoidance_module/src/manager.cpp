@@ -26,32 +26,50 @@ namespace autoware::behavior_path_planner
 {
 namespace
 {
+/**
+ * @brief 将字符串转换为多边形生成方法枚举
+ * @param str 方法名称字符串
+ * @return PolygonGenerationMethod 多边形生成方法枚举值
+ */
 PolygonGenerationMethod convertToPolygonGenerationMethod(const std::string & str)
 {
   if (str == "ego_path_base") {
-    return PolygonGenerationMethod::EGO_PATH_BASE;
+    return PolygonGenerationMethod::EGO_PATH_BASE;  // 基于自车路径生成多边形
   } else if (str == "object_path_base") {
-    return PolygonGenerationMethod::OBJECT_PATH_BASE;
+    return PolygonGenerationMethod::OBJECT_PATH_BASE;  // 基于对象路径生成多边形
   }
   throw std::logic_error("The polygon_generation_method's string is invalid.");
 }
 }  // namespace
 
+/**
+ * @brief 初始化动态避障模块管理器
+ * 
+ * 从ROS2参数服务器加载所有动态避障相关参数，包括：
+ * - 通用参数
+ * - 目标对象类型过滤
+ * - 可行驶区域生成参数
+ * - 切入/切出对象参数
+ * - 横穿对象参数
+ */
 void DynamicObstacleAvoidanceModuleManager::init(rclcpp::Node * node)
 {
-  // init manager interface
+  // 初始化管理器接口
   initInterface(node, {""});
 
   DynamicAvoidanceParameters p{};
 
-  {  // common
+  // 加载通用参数
+  {
     const std::string ns = "dynamic_avoidance.common.";
     p.enable_debug_info = node->declare_parameter<bool>(ns + "enable_debug_info");
     p.use_hatched_road_markings = node->declare_parameter<bool>(ns + "use_hatched_road_markings");
   }
 
-  {  // target object
+  // 加载目标对象参数
+  {
     const std::string ns = "dynamic_avoidance.target_object.";
+    // 设置需要避让的对象类型
     p.avoid_car = node->declare_parameter<bool>(ns + "car");
     p.avoid_truck = node->declare_parameter<bool>(ns + "truck");
     p.avoid_bus = node->declare_parameter<bool>(ns + "bus");
@@ -60,8 +78,10 @@ void DynamicObstacleAvoidanceModuleManager::init(rclcpp::Node * node)
     p.avoid_bicycle = node->declare_parameter<bool>(ns + "bicycle");
     p.avoid_motorcycle = node->declare_parameter<bool>(ns + "motorcycle");
     p.avoid_pedestrian = node->declare_parameter<bool>(ns + "pedestrian");
+    // 障碍物速度范围
     p.max_obstacle_vel = node->declare_parameter<double>(ns + "max_obstacle_vel");
     p.min_obstacle_vel = node->declare_parameter<double>(ns + "min_obstacle_vel");
+    // 进入和退出动态避障条件的连续次数阈值
     p.successive_num_to_entry_dynamic_avoidance_condition =
       node->declare_parameter<int>(ns + "successive_num_to_entry_dynamic_avoidance_condition");
     p.successive_num_to_exit_dynamic_avoidance_condition =
@@ -147,9 +167,17 @@ void DynamicObstacleAvoidanceModuleManager::init(rclcpp::Node * node)
       node->declare_parameter<double>(ns + "oncoming_object.end_duration_to_avoid");
   }
 
+  // 保存参数
   parameters_ = std::make_shared<DynamicAvoidanceParameters>(p);
 }
 
+/**
+ * @brief 更新模块参数
+ * 
+ * 在运行时动态更新模块参数，并通知所有观察者。
+ * 
+ * @param parameters ROS2参数列表
+ */
 void DynamicObstacleAvoidanceModuleManager::updateModuleParams(
   [[maybe_unused]] const std::vector<rclcpp::Parameter> & parameters)
 {
@@ -284,6 +312,7 @@ void DynamicObstacleAvoidanceModuleManager::updateModuleParams(
       p->end_duration_to_avoid_oncoming_object);
   }
 
+  // 通知所有观察者参数已更新
   std::for_each(observers_.begin(), observers_.end(), [&p](const auto & observer) {
     if (!observer.expired()) observer.lock()->updateModuleParams(p);
   });
@@ -291,6 +320,7 @@ void DynamicObstacleAvoidanceModuleManager::updateModuleParams(
 
 }  // namespace autoware::behavior_path_planner
 
+// 将该管理器类导出为ROS2插件
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(
   autoware::behavior_path_planner::DynamicObstacleAvoidanceModuleManager,

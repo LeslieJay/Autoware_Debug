@@ -56,6 +56,7 @@ const std::map<std::string, uint8_t> g_signal_map = {
   {"straight", TurnIndicatorsCommand::DISABLE},
   {"none", TurnIndicatorsCommand::DISABLE}};
 
+/// @brief TurnSignalInfo结构体
 struct TurnSignalInfo
 {
   TurnSignalInfo()
@@ -85,12 +86,14 @@ struct TurnSignalInfo
   geometry_msgs::msg::Pose required_end_point;
 };
 
+/// @brief TurnSignalDebugData结构体
 struct TurnSignalDebugData
 {
   TurnSignalInfo intersection_turn_signal_info;
   TurnSignalInfo behavior_turn_signal_info;
 };
 
+/// @brief TurnSignalDecider类
 class TurnSignalDecider
 {
 public:

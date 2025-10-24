@@ -75,15 +75,37 @@ using visualization_msgs::msg::Marker;
 using visualization_msgs::msg::MarkerArray;
 using DebugPublisher = autoware_utils::DebugPublisher;
 
+/**
+ * @brief 行为路径规划器节点
+ * 
+ * 这是behavior_path_planner的主节点类，负责：
+ * - 协调所有场景模块(变道、避障、目标规划等)
+ * - 订阅传感器数据、地图、路由等输入
+ * - 发布规划路径、转向灯命令等输出
+ * - 管理模块的激活、执行和批准流程
+ * - 处理RTC(运行时协调)请求
+ * 
+ * 该节点是整个behavior planning系统的核心协调器。
+ */
 class BehaviorPathPlannerNode : public rclcpp::Node
 {
 public:
+  /**
+   * @brief 构造函数
+   * @param node_options ROS2节点选项
+   */
   explicit BehaviorPathPlannerNode(const rclcpp::NodeOptions & node_options);
 
-  // Getter method for waiting approval modules
+  /**
+   * @brief 获取等待审批的模块列表
+   * @return 等待审批的模块名称列表
+   */
   std::vector<std::string> getWaitingApprovalModules();
 
-  // Getter method for running modules
+  /**
+   * @brief 获取正在运行的模块列表
+   * @return 正在运行的模块名称列表
+   */
   std::vector<std::string> getRunningModules();
 
 private:
