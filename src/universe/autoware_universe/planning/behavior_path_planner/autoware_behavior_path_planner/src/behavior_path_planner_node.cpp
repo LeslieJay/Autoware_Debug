@@ -720,7 +720,7 @@ Path BehaviorPathPlannerNode::convertToPath(
   output.header = planner_data->route_handler->getRouteHeader();
   output.header.stamp = this->now();
 
-  if (!is_ready) {
+  if (!is_ready) { //@LESLIE 统计发布者和订阅者数量是否正确
     for (auto & point : output.points) {
       point.longitudinal_velocity_mps = 0.0;
       RCLCPP_INFO_THROTTLE(
